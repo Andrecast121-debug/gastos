@@ -155,6 +155,55 @@
   .hist-top-stats { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:20px; }
   @media(max-width:500px) { .hist-top-stats { grid-template-columns:1fr 1fr; } }
 
+  /* BALANCE / LIQUIDACIÓN */
+  .balance-banner { border-radius:var(--radius); padding:16px 18px; margin-bottom:16px; border:1px solid; display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  .balance-ok { background:linear-gradient(135deg,#34d39908,#34d39903); border-color:#34d39930; color:var(--green); font-size:14px; font-weight:600; justify-content:center; }
+  .balance-debe { background:linear-gradient(135deg,#f472b608,#f472b603); border-color:#f472b630; }
+  .balance-icon { font-size:28px; flex-shrink:0; }
+  .balance-text { flex:1; }
+  .balance-title { font-size:12px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:.06em; }
+  .balance-amount { font-size:26px; font-weight:900; color:var(--karla); line-height:1.1; }
+  .balance-sub { font-size:12px; color:var(--muted); margin-top:2px; }
+  .balance-pay-btn { background:#f472b615; border:1px solid #f472b640; color:var(--karla); border-radius:8px; padding:9px 14px; font-size:13px; font-weight:700; cursor:pointer; white-space:nowrap; transition:all .2s; }
+  .balance-pay-btn:hover { background:#f472b625; }
+  .entry-liquidada { opacity:.55; }
+  .liq-badge { background:#34d39920; color:var(--green); font-size:10px; padding:1px 7px; border-radius:99px; font-weight:700; }
+  .pagador-tag { font-size:11px; padding:2px 7px; border-radius:99px; font-weight:600; }
+  .pagador-tag.karla { background:#f472b618; color:var(--karla); }
+  .pagador-tag.andre { background:#60a5fa18; color:var(--andre); }
+  .debe-tag { font-size:11px; color:var(--yellow); margin-top:4px; font-weight:600; }
+  .liq-btn { background:#34d39915; border:1px solid #34d39935; color:var(--green); border-radius:6px; padding:4px 10px; font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap; transition:all .2s; }
+  .liq-btn:hover { background:#34d39925; }
+  .liq-btn.liq-done { background:#7070a015; border-color:#7070a030; color:var(--muted); }
+  .pend-item { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--border); gap:10px; flex-wrap:wrap; }
+  .pend-item:last-child { border:none; }
+  .pend-main { flex:1; }
+  .pend-nombre { font-size:14px; font-weight:600; }
+  .pend-sub { font-size:12px; color:var(--muted); margin-top:2px; }
+  .pend-right { display:flex; flex-direction:column; align-items:flex-end; gap:5px; }
+  .pend-debe { font-size:12px; font-weight:700; color:var(--yellow); }
+
+  /* MSI CARDS */
+  .msi-card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:16px 18px; margin-bottom:12px; transition:opacity .2s; }
+  .msi-card.terminado { opacity:.6; }
+  .msi-card-header { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:14px; }
+  .msi-card-left { flex:1; min-width:0; }
+  .msi-nombre { font-size:15px; font-weight:700; }
+  .msi-sub { font-size:12px; color:var(--muted); margin-top:2px; }
+  .msi-card-right { text-align:right; flex-shrink:0; }
+  .msi-mensualidad { font-size:17px; font-weight:800; color:var(--cat-msi); }
+  .msi-progress-section { margin-bottom:12px; }
+  .msi-progress-labels { display:flex; justify-content:space-between; font-size:12px; color:var(--muted); margin-bottom:5px; }
+  .msi-bar-track { background:var(--border); border-radius:99px; height:9px; overflow:hidden; margin-bottom:8px; }
+  .msi-bar-fill { height:100%; border-radius:99px; transition:width .5s cubic-bezier(.4,0,.2,1); }
+  .msi-pips { display:flex; gap:3px; flex-wrap:wrap; margin-bottom:8px; }
+  .msi-pip { width:10px; height:10px; border-radius:3px; background:var(--border); transition:background .3s; flex-shrink:0; }
+  .msi-pip.paid { background:var(--cat-msi); }
+  .msi-amounts { display:flex; justify-content:space-between; font-size:12px; font-weight:600; }
+  .msi-actions { display:flex; justify-content:space-between; align-items:center; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
+  .msi-pay-btn { background:linear-gradient(135deg,#fbbf2430,#fbbf2415); border:1px solid #fbbf2450; color:var(--yellow); border-radius:8px; padding:8px 16px; font-size:13px; font-weight:700; cursor:pointer; transition:all .2s; }
+  .msi-pay-btn:hover { background:#fbbf2430; transform:scale(1.02); }
+
   /* AHORRO */
   .ahorro-hero { background:linear-gradient(135deg,#1a1a2e,#16213e); border:1px solid var(--border); border-radius:var(--radius); padding:24px 20px; margin-bottom:16px; text-align:center; }
   .ahorro-meta-label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px; }
@@ -242,6 +291,7 @@
   <main>
     <!-- RESUMEN -->
     <div id="page-resumen" class="page active">
+      <div id="balance-banner"></div>
       <div class="month-bar">
         <label>Mes:</label>
         <select id="resumen-mes" onchange="renderResumen()"></select>
@@ -251,6 +301,7 @@
         <div class="card-title">Desglose por categoría</div>
         <div id="resumen-breakdown"></div>
       </div>
+      <div id="pendientes-section"></div>
     </div>
 
     <!-- GASTOS -->
@@ -279,6 +330,14 @@
           <div class="form-group">
             <label>Total $</label>
             <input id="g-total" type="number" placeholder="0.00" oninput="calcGastoSplit()">
+          </div>
+          <div class="form-group">
+            <label>¿Quién pagó en físico?</label>
+            <select id="g-quien-pago">
+              <option value="karla">Karla</option>
+              <option value="andre">Andre</option>
+              <option value="compartido">Compartido (cada quien lo suyo)</option>
+            </select>
           </div>
           <div class="form-group">
             <label>¿Cómo se divide?</label>
@@ -771,7 +830,8 @@ function addGasto() {
   if(!nombre||!fecha||!total) return alert('Llena descripción, fecha y monto.');
   const karla=+document.getElementById('g-karla').value||0;
   const andre=+document.getElementById('g-andre').value||0;
-  state.gastos.push({id:Date.now(),nombre,fecha,total,karla,andre,cat,notas});
+  const quien_pago=document.getElementById('g-quien-pago').value;
+  state.gastos.push({id:Date.now(),nombre,fecha,total,karla,andre,cat,notas,quien_pago,liquidado:quien_pago==='compartido'});
   save(); renderGastos(); populateMonthSelect('resumen-mes'); populateMonthSelect('gastos-mes');
   document.getElementById('g-nombre').value=''; document.getElementById('g-total').value=''; document.getElementById('g-notas').value='';
   toggleForm('gasto');
@@ -779,6 +839,12 @@ function addGasto() {
 function deleteGasto(id) {
   if(!confirm('¿Eliminar este gasto?')) return;
   state.gastos=state.gastos.filter(g=>g.id!==id); save(); renderGastos();
+}
+function toggleLiquidado(id) {
+  const g = state.gastos.find(x=>x.id===id);
+  if(!g) return;
+  g.liquidado = !g.liquidado;
+  save(); renderGastos(); renderResumen();
 }
 function renderGastos() {
   populateMonthSelect('gastos-mes');
@@ -800,16 +866,25 @@ function renderGastos() {
     const catTotal=gs.reduce((s,g)=>s+g.total,0);
     html+=`<div class="section-header" style="margin-top:16px"><h2>${c.icon} ${c.label}</h2><span style="font-weight:700;color:${c.color}">${fmt(catTotal)}</span></div>`;
     gs.forEach(g=>{
-      html+=`<div class="entry">
+      const debeQuien = !g.liquidado && g.quien_pago && g.quien_pago!=='compartido'
+        ? (g.quien_pago==='karla' && g.andre>0 ? 'Andre le debe a Karla'
+          : g.quien_pago==='andre' && g.karla>0 ? 'Karla le debe a Andre' : null)
+        : null;
+      html+=`<div class="entry ${g.liquidado?'entry-liquidada':''}">
         <div class="entry-main">
-          <div class="entry-name">${g.nombre}</div>
+          <div class="entry-name">${g.nombre} ${g.liquidado?'<span class="liq-badge">✓ Liquidado</span>':''}</div>
           <div class="entry-sub">${g.fecha}${g.notas?' · '+g.notas:''}</div>
           <div class="entry-split">
+            ${g.quien_pago&&g.quien_pago!=='compartido'?`<span class="pagador-tag ${g.quien_pago}">Pagó ${g.quien_pago==='karla'?'Karla':'Andre'}</span>`:''}
             ${g.karla>0?`<span class="split-tag karla">K ${fmt(g.karla)}</span>`:''}
             ${g.andre>0?`<span class="split-tag andre">A ${fmt(g.andre)}</span>`:''}
           </div>
+          ${debeQuien?`<div class="debe-tag">💸 ${debeQuien}: ${fmt(g.quien_pago==='karla'?g.andre:g.karla)}</div>`:''}
         </div>
-        <div class="entry-amount" style="color:${c.color}">${fmt(g.total)}</div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px">
+          <div class="entry-amount" style="color:${c.color}">${fmt(g.total)}</div>
+          ${g.quien_pago&&g.quien_pago!=='compartido'?`<button class="liq-btn ${g.liquidado?'liq-done':''}" onclick="toggleLiquidado(${g.id})">${g.liquidado?'↩ Reabrir':'✓ Ya liquidé'}</button>`:''}
+        </div>
         <button class="btn btn-danger" onclick="deleteGasto(${g.id})">✕</button>
       </div>`;
     });
@@ -848,34 +923,107 @@ function deleteCompra(id) {
   if(!confirm('¿Eliminar esta compra?')) return;
   state.compras=state.compras.filter(c=>c.id!==id); save(); renderCompras();
 }
+function pagarMes(id) {
+  const c = state.compras.find(x=>x.id===id);
+  if(!c) return;
+  const pagados = (c.pagados||0);
+  if(pagados >= c.meses) return;
+  c.pagados = pagados + 1;
+  save(); renderCompras();
+}
+function despagarMes(id) {
+  const c = state.compras.find(x=>x.id===id);
+  if(!c || !c.pagados) return;
+  c.pagados = c.pagados - 1;
+  save(); renderCompras();
+}
 function renderCompras() {
   const el=document.getElementById('list-compras');
   if(!state.compras.length) { el.innerHTML='<div class="empty">Sin compras a meses registradas.</div>'; return; }
-  const now=new Date().toISOString().slice(0,7);
-  const active=state.compras.filter(c=>c.end>=now);
-  const done=state.compras.filter(c=>c.end<now);
+
   function rItem(c) {
-    const ia=c.end>=now;
-    return `<div class="entry" style="${ia?'':'opacity:.5'}">
-      <div class="entry-main">
-        <div class="entry-name">${c.nombre} <span class="msi-badge">${c.meses}MSI</span></div>
-        <div class="entry-sub">${c.fecha} → ${c.end}${c.tarjeta?' · '+c.tarjeta:''}</div>
-        <div class="entry-split">
-          <span class="pill ${c.quien==='ambos'?'ambos':c.quien}">${c.quien==='ambos'?'Compartido':c.quien==='karla'?'Karla':'Andre'}</span>
-          ${c.karla>0?`<span class="split-tag karla">K ${fmt(c.karla)}/mes</span>`:''}
-          ${c.andre>0?`<span class="split-tag andre">A ${fmt(c.andre)}/mes</span>`:''}
+    const pagados = c.pagados || 0;
+    const pendientes = c.meses - pagados;
+    const pct = Math.round(pagados / c.meses * 100);
+    const pagado_total = pagados * c.mensualidad;
+    const restante = c.total - pagado_total;
+    const terminado = pagados >= c.meses;
+
+    // progress bar color: yellow → green as it fills
+    const barColor = terminado ? 'var(--green)' : 'var(--cat-msi)';
+
+    // pip dots (max 24 shown, then just numbers)
+    let pipsHtml = '';
+    if(c.meses <= 24) {
+      pipsHtml = '<div class="msi-pips">';
+      for(let i=0;i<c.meses;i++) {
+        pipsHtml += `<div class="msi-pip ${i<pagados?'paid':''}"></div>`;
+      }
+      pipsHtml += '</div>';
+    }
+
+    return `<div class="msi-card ${terminado?'terminado':''}">
+      <div class="msi-card-header">
+        <div class="msi-card-left">
+          <div class="msi-nombre">${c.nombre}</div>
+          <div class="msi-sub">${c.tarjeta||''}${c.tarjeta&&c.notas?' · ':''}${c.notas||''}</div>
+          <div class="entry-split" style="margin-top:5px">
+            <span class="pill ${c.quien==='ambos'?'ambos':c.quien}">${c.quien==='ambos'?'Compartido':c.quien==='karla'?'Karla':'Andre'}</span>
+            ${c.karla>0?`<span class="split-tag karla">K ${fmt(c.karla)}/mes</span>`:''}
+            ${c.andre>0?`<span class="split-tag andre">A ${fmt(c.andre)}/mes</span>`:''}
+          </div>
+        </div>
+        <div class="msi-card-right">
+          <div class="msi-mensualidad">${fmt(c.mensualidad)}<span style="font-size:11px;color:var(--muted)">/mes</span></div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">${fmt(c.total)} total</div>
         </div>
       </div>
-      <div style="text-align:right">
-        <div class="entry-amount" style="color:var(--cat-msi)">${fmt(c.mensualidad)}<span style="font-size:11px;color:var(--muted)">/mes</span></div>
-        <div style="font-size:11px;color:var(--muted)">${fmt(c.total)} total</div>
+
+      <div class="msi-progress-section">
+        <div class="msi-progress-labels">
+          <span>${terminado?'✅ Liquidado':`${pendientes} mes${pendientes!==1?'es':''} restante${pendientes!==1?'s':''}`}</span>
+          <span style="color:${barColor};font-weight:700">${pagados}/${c.meses} <span style="color:var(--muted);font-weight:400">(${pct}%)</span></span>
+        </div>
+        <div class="msi-bar-track">
+          <div class="msi-bar-fill" style="width:${pct}%;background:${barColor}"></div>
+        </div>
+        ${pipsHtml}
+        <div class="msi-amounts">
+          <span style="color:var(--green)">Pagado: ${fmt(pagado_total)}</span>
+          ${!terminado?`<span style="color:var(--cat-msi)">Falta: ${fmt(restante)}</span>`:''}
+        </div>
       </div>
-      <button class="btn btn-danger" onclick="deleteCompra(${c.id})">✕</button>
+
+      <div class="msi-actions">
+        ${!terminado
+          ? `<button class="msi-pay-btn" onclick="pagarMes(${c.id})">✓ Ya pagué este mes</button>`
+          : `<span style="color:var(--green);font-size:13px;font-weight:600">🎉 ¡Terminado!</span>`}
+        <div style="display:flex;gap:6px">
+          ${pagados>0?`<button class="btn btn-sm" style="background:var(--surface);border:1px solid var(--border);font-size:11px" onclick="despagarMes(${c.id})" title="Deshacer último pago">↩</button>`:''}
+          <button class="btn btn-danger" onclick="deleteCompra(${c.id})">✕</button>
+        </div>
+      </div>
     </div>`;
   }
-  el.innerHTML=`
-    ${active.length?`<div class="section-header"><h2>Activas (${active.length})</h2></div>${active.map(rItem).join('')}`:''}
-    ${done.length?`<div class="section-header" style="margin-top:20px"><h2 style="color:var(--muted)">Liquidadas</h2></div>${done.map(rItem).join('')}`:''}`;
+
+  const active = state.compras.filter(c=>(c.pagados||0)<c.meses);
+  const done   = state.compras.filter(c=>(c.pagados||0)>=c.meses);
+
+  // summary of active
+  const totalMensual = active.reduce((s,c)=>s+c.mensualidad,0);
+  const totalRestante = active.reduce((s,c)=>s+(c.total-(c.pagados||0)*c.mensualidad),0);
+
+  let summaryHtml = '';
+  if(active.length) {
+    summaryHtml = `<div class="card" style="margin-bottom:14px"><div class="breakdown">
+      <div class="breakdown-row"><span>Mensualidad total activa</span><span class="amount" style="color:var(--cat-msi)">${fmt(totalMensual)}/mes</span></div>
+      <div class="breakdown-row"><span>Total por pagar</span><span class="amount" style="color:var(--yellow)">${fmt(totalRestante)}</span></div>
+    </div></div>`;
+  }
+
+  el.innerHTML = summaryHtml +
+    (active.length?`<div class="section-header"><h2>Activas (${active.length})</h2></div>${active.map(rItem).join('')}`:'') +
+    (done.length?`<div class="section-header" style="margin-top:20px"><h2 style="color:var(--muted)">Liquidadas (${done.length})</h2></div>${done.map(rItem).join('')}`:'');
 }
 
 // ── RESUMEN ───────────────────────────────────────────────────
@@ -920,6 +1068,87 @@ function renderResumen() {
     </div>`;
   });
   document.getElementById('resumen-breakdown').innerHTML=`<div class="breakdown">${rows}<div class="total-row"><span>Total</span><span style="color:var(--shared)">${fmt(total)}</span></div></div>`;
+
+  // ── BALANCE: quién le debe cuánto a quién ──
+  // gastos de TODOS los meses no liquidados (no solo el mes filtrado)
+  const pendientes = state.gastos.filter(g => !g.liquidado && g.quien_pago && g.quien_pago !== 'compartido');
+
+  // karla_debe: suma de lo que Karla debe a Andre (Andre pagó, Karla tiene parte)
+  // andre_debe: suma de lo que Andre debe a Karla (Karla pagó, Andre tiene parte)
+  let karla_debe = 0, andre_debe = 0;
+  pendientes.forEach(g => {
+    if(g.quien_pago === 'andre' && g.karla > 0) karla_debe += g.karla;
+    if(g.quien_pago === 'karla' && g.andre > 0) andre_debe += g.andre;
+  });
+  const neto = karla_debe - andre_debe; // + = Karla debe a Andre, - = Andre debe a Karla
+
+  let bannerHtml = '';
+  if(pendientes.length === 0) {
+    bannerHtml = `<div class="balance-banner balance-ok">✅ Sin cuentas pendientes entre ustedes</div>`;
+  } else if(neto > 0) {
+    bannerHtml = `<div class="balance-banner balance-debe">
+      <div class="balance-icon">💸</div>
+      <div class="balance-text">
+        <div class="balance-title">Karla le debe a Andre</div>
+        <div class="balance-amount">${fmt(neto)}</div>
+        <div class="balance-sub">${pendientes.length} gasto${pendientes.length!==1?'s':''} pendiente${pendientes.length!==1?'s':''}</div>
+      </div>
+      <button class="balance-pay-btn" onclick="liquidarTodo('karla')">Karla ya pagó todo</button>
+    </div>`;
+  } else if(neto < 0) {
+    bannerHtml = `<div class="balance-banner balance-debe" style="border-color:#60a5fa50;background:linear-gradient(135deg,#60a5fa08,#60a5fa03)">
+      <div class="balance-icon">💸</div>
+      <div class="balance-text">
+        <div class="balance-title">Andre le debe a Karla</div>
+        <div class="balance-amount" style="color:var(--andre)">${fmt(Math.abs(neto))}</div>
+        <div class="balance-sub">${pendientes.length} gasto${pendientes.length!==1?'s':''} pendiente${pendientes.length!==1?'s':''}</div>
+      </div>
+      <button class="balance-pay-btn" style="border-color:#60a5fa50;color:var(--andre)" onclick="liquidarTodo('andre')">Andre ya pagó todo</button>
+    </div>`;
+  } else {
+    // neto == 0 pero hay pendientes (se cancelan)
+    bannerHtml = `<div class="balance-banner balance-ok">⚖️ Se deben lo mismo — están a mano (${fmt(karla_debe)} cada uno)</div>`;
+  }
+  document.getElementById('balance-banner').innerHTML = bannerHtml;
+
+  // lista de pendientes detallada
+  let pendHtml = '';
+  if(pendientes.length) {
+    const mesActual = state.gastos.filter(g=>!g.liquidado&&g.quien_pago&&g.quien_pago!=='compartido'&&g.fecha.startsWith(mes));
+    if(mesActual.length) {
+      pendHtml = `<div class="card" style="margin-top:14px">
+        <div class="card-title">Pendientes de liquidar — ${formatMonth(mes)}</div>
+        ${mesActual.map(g=>{
+          const debeAmt = g.quien_pago==='karla'?g.andre:g.karla;
+          const deudor  = g.quien_pago==='karla'?'Andre':'Karla';
+          return `<div class="pend-item">
+            <div class="pend-main">
+              <div class="pend-nombre">${g.nombre}</div>
+              <div class="pend-sub">${g.fecha} · Pagó ${g.quien_pago==='karla'?'Karla':'Andre'}</div>
+            </div>
+            <div class="pend-right">
+              <div class="pend-debe">${deudor} debe ${fmt(debeAmt)}</div>
+              <button class="liq-btn" onclick="toggleLiquidado(${g.id});renderResumen()">✓ Liquidar</button>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`;
+    }
+  }
+  document.getElementById('pendientes-section').innerHTML = pendHtml;
+}
+
+function liquidarTodo(quienPago) {
+  // marca como liquidados todos los gastos donde el otro pagó
+  state.gastos.forEach(g => {
+    if(!g.liquidado && g.quien_pago && g.quien_pago !== 'compartido') {
+      if(quienPago === 'karla' && g.quien_pago === 'andre' && g.karla > 0) g.liquidado = true;
+      if(quienPago === 'andre' && g.quien_pago === 'karla' && g.andre > 0) g.liquidado = true;
+    }
+  });
+  save(); renderResumen();
+  const page = document.getElementById('page-gastos');
+  if(page.classList.contains('active')) renderGastos();
 }
 
 // ── HISTORIAL ─────────────────────────────────────────────────
