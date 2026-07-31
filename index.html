@@ -314,7 +314,7 @@
 <div id="login-screen">
   <div class="login-card">
     <div class="login-title">💰 Finanzas K & A</div>
-    <div class="login-sub">Inicia sesión para sincronizar con tu pareja</div>
+    <div class="login-sub" id="login-sub">Inicia sesión</div>
     <div class="login-field">
       <label>¿Quién eres?</label>
       <select id="login-user">
@@ -323,21 +323,21 @@
       </select>
     </div>
     <div class="login-field">
-      <label>GitHub Personal Access Token</label>
-      <input id="login-pat" type="password" placeholder="ghp_xxxxxxxxxxxx">
+      <label>Contraseña de datos</label>
+      <input id="login-pass" type="password" placeholder="Tu contraseña secreta" onkeydown="if(event.key==='Enter')doLogin()">
     </div>
-    <div class="login-field">
-      <label>Contraseña de datos <span style="color:var(--shared)">(la misma para los dos)</span></label>
-      <input id="login-pass" type="password" placeholder="Ej: gatos2024">
+    <div class="login-field" id="pat-field" style="display:none">
+      <label>GitHub Token <span style="color:var(--muted);font-size:10px">(solo la primera vez)</span></label>
+      <input id="login-pat" type="password" placeholder="ghp_xxxxxxxxxxxx" onkeydown="if(event.key==='Enter')doLogin()">
+      <div style="margin-top:6px">
+        <a href="https://github.com/settings/tokens/new?scopes=repo&description=finanzas-ka" target="_blank" style="font-size:11px;color:var(--shared)">→ Crear token aquí</a>
+      </div>
     </div>
     <button class="login-btn" onclick="doLogin()">Entrar</button>
-    <div class="login-err" id="login-err">Token inválido, sin permisos, o contraseña incorrecta.</div>
+    <div class="login-err" id="login-err" style="display:none">Token inválido, contraseña incorrecta, o sin conexión.</div>
     <div class="login-hint">
-      Token y contraseña se guardan solo en tu dispositivo.<br>
-      Necesitas un PAT con permiso <strong>repo</strong>.<br>
-      <a href="https://github.com/settings/tokens/new?scopes=repo&description=finanzas-ka" target="_blank">→ Crear token aquí</a><br><br>
-      🔒 Los datos se guardan <strong>encriptados</strong> en GitHub.<br>
-      Sin la contraseña, nadie puede leerlos.
+      🔒 Datos encriptados en GitHub.<br>
+      El token solo se pide la primera vez en cada dispositivo.
     </div>
   </div>
 </div>
@@ -674,26 +674,61 @@ let currentUser = null;
 let currentPAT  = null;
 let currentPass = null;
 
-function doLogin() {
+// Check if PAT is stored — if not, show PAT field
+function checkLoginMode() {
+  const storedPAT = localStorage.getItem('fka-pat');
+  const patField  = document.getElementById('pat-field');
+  const sub       = document.getElementById('login-sub');
+  if(storedPAT) {
+    patField.style.display = 'none';
+    sub.textContent = 'Ingresa tu contraseña';
+  } else {
+    patField.style.display = 'block';
+    sub.textContent = 'Primera vez — ingresa tu token y contraseña';
+  }
+}
+
+async function doLogin() {
   const user = document.getElementById('login-user').value;
-  const pat  = document.getElementById('login-pat').value.trim();
   const pass = document.getElementById('login-pass').value.trim();
-  if(!pat || !pass) { document.getElementById('login-err').style.display='block'; return; }
-  setSyncState('loading', 'Verificando token…');
-  fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}`, {
-    headers: { Authorization: `token ${pat}`, 'User-Agent': 'finanzas-ka' }
-  }).then(r => {
+  const errEl = document.getElementById('login-err');
+  errEl.style.display = 'none';
+
+  if(!pass) { errEl.textContent='Ingresa tu contraseña.'; errEl.style.display='block'; return; }
+
+  // Get PAT: from field (first time) or from localStorage
+  let pat = localStorage.getItem('fka-pat') || '';
+  const patInput = document.getElementById('login-pat').value.trim();
+  if(patInput) pat = patInput; // user typed a new one
+
+  if(!pat) { errEl.textContent='Ingresa tu GitHub Token.'; errEl.style.display='block'; return; }
+
+  const loginBtn = document.querySelector('.login-btn');
+  loginBtn.textContent = 'Verificando…';
+  loginBtn.disabled = true;
+
+  try {
+    const r = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}`, {
+      headers: { Authorization: `token ${pat}`, 'User-Agent': 'finanzas-ka' }
+    });
     if(!r.ok) throw new Error('bad token');
+
     currentUser = user; currentPAT = pat; currentPass = pass;
     localStorage.setItem('fka-user', user);
     localStorage.setItem('fka-pat',  pat);
     localStorage.setItem('fka-pass', pass);
-    document.getElementById('login-err').style.display = 'none';
+    errEl.style.display = 'none';
     showApp();
-  }).catch(() => {
-    document.getElementById('login-err').style.display = 'block';
-    setSyncState('err', 'Token inválido');
-  });
+  } catch(e) {
+    errEl.textContent = 'Token inválido o sin conexión. Verifica e intenta de nuevo.';
+    errEl.style.display = 'block';
+    // clear stored PAT so user can re-enter
+    localStorage.removeItem('fka-pat');
+    document.getElementById('pat-field').style.display = 'block';
+  } finally {
+    loginBtn.textContent = 'Entrar';
+    loginBtn.disabled = false;
+  }
 }
 
 function doLogout() {
@@ -748,11 +783,22 @@ async function loadFromGitHub() {
           parsed = await decryptData(raw, currentPass);
         }
       } catch(decErr) {
-        setSyncState('err', 'Contraseña incorrecta');
-        document.getElementById('app-screen').style.display='none';
-        document.getElementById('login-screen').style.display='flex';
-        document.getElementById('login-err').style.display='block';
-        return;
+        // could be wrong password OR corrupted JSON
+        console.warn('Decrypt/parse error:', decErr.message);
+        if(decErr.message && decErr.message.includes('JSON')) {
+          // corrupted data — start fresh but warn
+          setSyncState('err', 'Datos corruptos — iniciando vacío');
+          parsed = { fijos:[], gastos:[], compras:[], ahorros:[], ahorro_meta:0 };
+          fileSHA = json.sha; // keep SHA so we can overwrite
+        } else {
+          setSyncState('err', 'Contraseña incorrecta');
+          document.getElementById('app-screen').style.display='none';
+          document.getElementById('login-screen').style.display='flex';
+          const errEl = document.getElementById('login-err');
+          errEl.textContent = 'Contraseña incorrecta.';
+          errEl.style.display='block';
+          return;
+        }
       }
       state = { fijos:[], gastos:[], compras:[], ahorros:[], ahorro_meta:0, ...parsed };
       setSyncState('ok', 'Sincronizado · ' + new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}));
@@ -2097,15 +2143,22 @@ function deleteAhorro(id) {
 }
 
 // ── INIT ──────────────────────────────────────────────────────
+// Init login screen
+checkLoginMode();
 const savedUser = localStorage.getItem('fka-user');
 const savedPAT  = localStorage.getItem('fka-pat');
 const savedPass = localStorage.getItem('fka-pass');
-if(savedUser && savedPAT && savedPass) {
+if(savedUser && savedPass) {
+  // have saved session — auto-fill and try
   currentUser = savedUser;
-  currentPAT  = savedPAT;
+  currentPAT  = savedPAT || '';
   currentPass = savedPass;
   document.getElementById('login-user').value = savedUser;
-  showApp();
+  document.getElementById('login-pass').value = savedPass;
+  if(savedPAT) {
+    // auto-login silently
+    doLogin();
+  }
 }
 
 // ── SWIPE PARA CAMBIAR PESTAÑA (móvil) ──────────────────────
