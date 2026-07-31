@@ -174,12 +174,18 @@
       <label>GitHub Personal Access Token</label>
       <input id="login-pat" type="password" placeholder="ghp_xxxxxxxxxxxx">
     </div>
+    <div class="login-field">
+      <label>Contraseña de datos <span style="color:var(--shared)">(la misma para los dos)</span></label>
+      <input id="login-pass" type="password" placeholder="Ej: gatos2024">
+    </div>
     <button class="login-btn" onclick="doLogin()">Entrar</button>
-    <div class="login-err" id="login-err">Token inválido o sin permisos. Verifica e intenta de nuevo.</div>
+    <div class="login-err" id="login-err">Token inválido, sin permisos, o contraseña incorrecta.</div>
     <div class="login-hint">
-      El token se guarda solo en tu dispositivo.<br>
+      Token y contraseña se guardan solo en tu dispositivo.<br>
       Necesitas un PAT con permiso <strong>repo</strong>.<br>
-      <a href="https://github.com/settings/tokens/new?scopes=repo&description=finanzas-ka" target="_blank">→ Crear token aquí</a>
+      <a href="https://github.com/settings/tokens/new?scopes=repo&description=finanzas-ka" target="_blank">→ Crear token aquí</a><br><br>
+      🔒 Los datos se guardan <strong>encriptados</strong> en GitHub.<br>
+      Sin la contraseña, nadie puede leerlos.
     </div>
   </div>
 </div>
@@ -419,24 +425,58 @@ const CATS = {
   otro:            { label:'Otro',              icon:'📌', color:'var(--cat-otro)' },
 };
 
+// ── CRYPTO ────────────────────────────────────────────────────
+async function deriveKey(password) {
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']
+  );
+  return crypto.subtle.deriveKey(
+    { name:'PBKDF2', salt: enc.encode('finanzas-ka-salt'), iterations:100000, hash:'SHA-256' },
+    keyMaterial, { name:'AES-GCM', length:256 }, false, ['encrypt','decrypt']
+  );
+}
+
+async function encryptData(data, password) {
+  const key = await deriveKey(password);
+  const iv  = crypto.getRandomValues(new Uint8Array(12));
+  const enc = new TextEncoder();
+  const encrypted = await crypto.subtle.encrypt({ name:'AES-GCM', iv }, key, enc.encode(JSON.stringify(data)));
+  // pack iv + ciphertext as base64
+  const combined = new Uint8Array(iv.length + encrypted.byteLength);
+  combined.set(iv, 0);
+  combined.set(new Uint8Array(encrypted), iv.length);
+  return btoa(String.fromCharCode(...combined));
+}
+
+async function decryptData(b64, password) {
+  const key  = await deriveKey(password);
+  const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+  const iv    = bytes.slice(0, 12);
+  const data  = bytes.slice(12);
+  const dec   = await crypto.subtle.decrypt({ name:'AES-GCM', iv }, key, data);
+  return JSON.parse(new TextDecoder().decode(dec));
+}
+
 // ── AUTH ──────────────────────────────────────────────────────
 let currentUser = null;
 let currentPAT  = null;
+let currentPass = null;
 
 function doLogin() {
   const user = document.getElementById('login-user').value;
   const pat  = document.getElementById('login-pat').value.trim();
-  if(!pat) return;
+  const pass = document.getElementById('login-pass').value.trim();
+  if(!pat || !pass) { document.getElementById('login-err').style.display='block'; return; }
   setSyncState('loading', 'Verificando token…');
-  // verify token by fetching repo
   fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}`, {
     headers: { Authorization: `token ${pat}`, 'User-Agent': 'finanzas-ka' }
   }).then(r => {
     if(!r.ok) throw new Error('bad token');
-    currentUser = user;
-    currentPAT  = pat;
+    currentUser = user; currentPAT = pat; currentPass = pass;
     localStorage.setItem('fka-user', user);
     localStorage.setItem('fka-pat',  pat);
+    localStorage.setItem('fka-pass', pass);
     document.getElementById('login-err').style.display = 'none';
     showApp();
   }).catch(() => {
@@ -448,7 +488,8 @@ function doLogin() {
 function doLogout() {
   localStorage.removeItem('fka-user');
   localStorage.removeItem('fka-pat');
-  currentUser = null; currentPAT = null;
+  localStorage.removeItem('fka-pass');
+  currentUser = null; currentPAT = null; currentPass = null;
   document.getElementById('app-screen').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
 }
@@ -480,20 +521,35 @@ async function loadFromGitHub() {
       { headers: { Authorization: `token ${currentPAT}`, 'User-Agent': 'finanzas-ka' } }
     );
     if(r.status === 404) {
-      // first time — empty data
       fileSHA = null;
       state = { fijos:[], gastos:[], compras:[] };
-      setSyncState('ok', 'Listo — datos nuevos');
+      setSyncState('ok', 'Listo — primera vez, datos vacíos');
     } else if(r.ok) {
       const json = await r.json();
       fileSHA = json.sha;
-      const decoded = JSON.parse(atob(json.content.replace(/\n/g,'')));
-      state = { fijos:[], gastos:[], compras:[], ...decoded };
+      const raw = atob(json.content.replace(/\n/g,''));
+      // try decrypt; if it looks like plain JSON (legacy) parse directly
+      let parsed;
+      try {
+        if(raw.trim().startsWith('{')) {
+          parsed = JSON.parse(raw);
+        } else {
+          parsed = await decryptData(raw, currentPass);
+        }
+      } catch(decErr) {
+        setSyncState('err', 'Contraseña incorrecta');
+        document.getElementById('app-screen').style.display='none';
+        document.getElementById('login-screen').style.display='flex';
+        document.getElementById('login-err').style.display='block';
+        return;
+      }
+      state = { fijos:[], gastos:[], compras:[], ...parsed };
       setSyncState('ok', 'Sincronizado · ' + new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}));
     } else {
       throw new Error('fetch failed');
     }
   } catch(e) {
+    if(e.message !== 'fetch failed') throw e;
     setSyncState('err', 'Error al cargar — usando datos locales');
     const local = localStorage.getItem('fka-state');
     if(local) state = JSON.parse(local);
@@ -506,7 +562,8 @@ async function loadFromGitHub() {
 async function saveToGitHub() {
   setSyncState('loading', 'Guardando…');
   localStorage.setItem('fka-state', JSON.stringify(state)); // local backup
-  const content = btoa(unescape(encodeURIComponent(JSON.stringify(state, null, 2))));
+  const encrypted = await encryptData(state, currentPass);
+  const content = btoa(unescape(encodeURIComponent(encrypted)));
   const body = {
     message: `update by ${currentUser}`,
     content,
@@ -527,7 +584,7 @@ async function saveToGitHub() {
     );
     if(r.ok) {
       const json = await r.json();
-      fileSHA = json.content.sha;
+      fileSHA = json.content ? json.content.sha : fileSHA;
       setSyncState('ok', 'Guardado · ' + new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}));
     } else {
       const err = await r.json();
@@ -906,9 +963,11 @@ function toggleHist(uid) {
 // ── INIT ──────────────────────────────────────────────────────
 const savedUser = localStorage.getItem('fka-user');
 const savedPAT  = localStorage.getItem('fka-pat');
-if(savedUser && savedPAT) {
+const savedPass = localStorage.getItem('fka-pass');
+if(savedUser && savedPAT && savedPass) {
   currentUser = savedUser;
   currentPAT  = savedPAT;
+  currentPass = savedPass;
   document.getElementById('login-user').value = savedUser;
   showApp();
 }
