@@ -60,6 +60,14 @@ let currentPAT  = null;
 let currentPass = null;
 
 // Check if PAT is stored — if not, show PAT field
+function togglePassVis(inputId, btn) {
+  const input = document.getElementById(inputId);
+  if(!input) return;
+  const isPass = input.type === 'password';
+  input.type = isPass ? 'text' : 'password';
+  btn.textContent = isPass ? '🙈' : '👁';
+}
+
 function checkLoginMode() {
   const storedPAT = localStorage.getItem('fka-pat');
   const patField  = document.getElementById('pat-field');
@@ -162,8 +170,12 @@ async function loadFromGitHub() {
       // try decrypt; if it looks like plain JSON (legacy) parse directly
       let parsed;
       try {
-        if(raw.trim().startsWith('{')) {
-          parsed = JSON.parse(raw);
+        const trimmed = raw.trim();
+        if(trimmed === '{}' || trimmed === '') {
+          // empty/reset data.json — start fresh, no error
+          parsed = { fijos:[], gastos:[], compras:[], ahorros:[], ahorro_meta:0 };
+        } else if(trimmed.startsWith('{')) {
+          parsed = JSON.parse(trimmed);
         } else {
           parsed = await decryptData(raw, currentPass);
         }

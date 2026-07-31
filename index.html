@@ -28,6 +28,10 @@
   .login-field input, .login-field select { width:100%; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:10px 12px; color:var(--text); font-size:14px; outline:none; }
   .login-field input:focus { border-color:var(--shared); }
   .login-btn { width:100%; background:var(--shared); color:#fff; border:none; border-radius:8px; padding:12px; font-size:15px; font-weight:700; cursor:pointer; margin-top:6px; }
+  .pass-wrap { position:relative; }
+  .pass-wrap input { padding-right:40px; }
+  .pass-eye { position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; color:var(--muted); font-size:16px; padding:4px; }
+  .pass-eye:hover { color:var(--text); }
   .login-btn:hover { opacity:.9; }
   .login-err { color:var(--red); font-size:12px; margin-top:10px; text-align:center; display:none; }
   .login-hint { font-size:11px; color:var(--muted); margin-top:16px; line-height:1.6; background:var(--surface); border-radius:8px; padding:12px; }
@@ -324,11 +328,17 @@
     </div>
     <div class="login-field">
       <label>Contraseña de datos</label>
-      <input id="login-pass" type="password" placeholder="Tu contraseña secreta" onkeydown="if(event.key==='Enter')doLogin()">
+      <div class="pass-wrap">
+        <input id="login-pass" type="password" placeholder="Tu contraseña secreta" onkeydown="if(event.key==='Enter')doLogin()">
+        <button class="pass-eye" type="button" onclick="togglePassVis('login-pass',this)" tabindex="-1">👁</button>
+      </div>
     </div>
     <div class="login-field" id="pat-field" style="display:none">
       <label>GitHub Token <span style="color:var(--muted);font-size:10px">(solo la primera vez)</span></label>
-      <input id="login-pat" type="password" placeholder="ghp_xxxxxxxxxxxx" onkeydown="if(event.key==='Enter')doLogin()">
+      <div class="pass-wrap">
+        <input id="login-pat" type="password" placeholder="ghp_xxxxxxxxxxxx" onkeydown="if(event.key==='Enter')doLogin()">
+        <button class="pass-eye" type="button" onclick="togglePassVis('login-pat',this)" tabindex="-1">👁</button>
+      </div>
       <div style="margin-top:6px">
         <a href="https://github.com/settings/tokens/new?scopes=repo&description=finanzas-ka" target="_blank" style="font-size:11px;color:var(--shared)">→ Crear token aquí</a>
       </div>
