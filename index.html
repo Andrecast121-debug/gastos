@@ -155,6 +155,24 @@
   .hist-top-stats { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:20px; }
   @media(max-width:500px) { .hist-top-stats { grid-template-columns:1fr 1fr; } }
 
+  /* MODAL EDICIÓN / PAGO PARCIAL */
+  .modal-overlay { display:none; position:fixed; inset:0; background:#00000090; z-index:999; align-items:center; justify-content:center; padding:16px; }
+  .modal-overlay.open { display:flex; }
+  .modal { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:22px 20px; width:100%; max-width:440px; max-height:90vh; overflow-y:auto; }
+  .modal-title { font-size:15px; font-weight:800; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; }
+  .modal-close { background:none; border:none; color:var(--muted); font-size:20px; cursor:pointer; line-height:1; padding:0 4px; }
+  .modal-close:hover { color:var(--text); }
+  .modal-field { margin-bottom:12px; }
+  .modal-field label { font-size:12px; color:var(--muted); display:block; margin-bottom:4px; }
+  .modal-field input, .modal-field select { width:100%; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:9px 12px; color:var(--text); font-size:14px; outline:none; }
+  .modal-field input:focus, .modal-field select:focus { border-color:var(--shared); }
+  .modal-actions { display:flex; gap:8px; margin-top:16px; }
+  .modal-actions .btn { flex:1; }
+  .parcial-info { background:var(--surface); border-radius:8px; padding:10px 12px; margin-bottom:14px; font-size:13px; }
+  .parcial-info b { color:var(--yellow); }
+  .edit-btn { background:none; border:none; color:var(--muted); cursor:pointer; font-size:13px; padding:4px 7px; border-radius:6px; transition:all .2s; }
+  .edit-btn:hover { background:var(--surface); color:var(--text); }
+
   /* BALANCE / LIQUIDACIÓN */
   .balance-banner { border-radius:var(--radius); padding:16px 18px; margin-bottom:16px; border:1px solid; display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
   .balance-ok { background:linear-gradient(135deg,#34d39908,#34d39903); border-color:#34d39930; color:var(--green); font-size:14px; font-weight:600; justify-content:center; }
@@ -498,6 +516,40 @@
   </main>
 </div>
 
+<!-- MODAL EDITAR -->
+<div class="modal-overlay" id="modal-edit">
+  <div class="modal">
+    <div class="modal-title">
+      <span id="modal-edit-title">Editar</span>
+      <button class="modal-close" onclick="closeModal('modal-edit')">✕</button>
+    </div>
+    <div id="modal-edit-fields"></div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="saveEdit()">Guardar</button>
+      <button class="btn btn-sm" style="background:var(--surface);border:1px solid var(--border)" onclick="closeModal('modal-edit')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PAGO PARCIAL -->
+<div class="modal-overlay" id="modal-parcial">
+  <div class="modal">
+    <div class="modal-title">
+      <span>Pago parcial</span>
+      <button class="modal-close" onclick="closeModal('modal-parcial')">✕</button>
+    </div>
+    <div class="parcial-info" id="parcial-info"></div>
+    <div class="modal-field">
+      <label>¿Cuánto vas a abonar ahora? $</label>
+      <input id="parcial-monto" type="number" placeholder="0.00" min="0.01">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="confirmarParcial()">Abonar</button>
+      <button class="btn btn-sm" style="background:var(--surface);border:1px solid var(--border)" onclick="closeModal('modal-parcial')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ══════════════════════════════════════════════════════════════
 // CONFIG — cambia estos valores a los de tu repo
@@ -801,6 +853,7 @@ function renderFijos() {
           </div>
         </div>
         <div class="entry-amount" style="color:${c.color}">${fmt(f.monto)}</div>
+        <button class="edit-btn" onclick="openEdit('fijo',${f.id})" title="Editar">✏️</button>
         <button class="btn btn-danger" onclick="deleteFijo(${f.id})">✕</button>
       </div>`;
     });
@@ -886,6 +939,7 @@ function renderGastos() {
           ${g.quien_pago&&g.quien_pago!=='compartido'?`<button class="liq-btn ${g.liquidado?'liq-done':''}" onclick="toggleLiquidado(${g.id})">${g.liquidado?'↩ Reabrir':'✓ Ya liquidé'}</button>`:''}
         </div>
         <button class="btn btn-danger" onclick="deleteGasto(${g.id})">✕</button>
+      <button class="edit-btn" onclick="openEdit('gasto',${g.id})" title="Editar">✏️</button>
       </div>`;
     });
   });
@@ -1001,6 +1055,7 @@ function renderCompras() {
         <div style="display:flex;gap:6px">
           ${pagados>0?`<button class="btn btn-sm" style="background:var(--surface);border:1px solid var(--border);font-size:11px" onclick="despagarMes(${c.id})" title="Deshacer último pago">↩</button>`:''}
           <button class="btn btn-danger" onclick="deleteCompra(${c.id})">✕</button>
+        <button class="edit-btn" onclick="openEdit('compra',${c.id})" title="Editar">✏️</button>
         </div>
       </div>
     </div>`;
@@ -1093,7 +1148,10 @@ function renderResumen() {
         <div class="balance-amount">${fmt(neto)}</div>
         <div class="balance-sub">${pendientes.length} gasto${pendientes.length!==1?'s':''} pendiente${pendientes.length!==1?'s':''}</div>
       </div>
-      <button class="balance-pay-btn" onclick="liquidarTodo('karla')">Karla ya pagó todo</button>
+      <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
+        <button class="balance-pay-btn" onclick="liquidarTodo('karla')">✓ Karla pagó todo</button>
+        <button class="balance-pay-btn" style="background:#fbbf2415;border-color:#fbbf2440;color:var(--yellow)" onclick="openParcial('karla',${neto})">Abonar parte…</button>
+      </div>
     </div>`;
   } else if(neto < 0) {
     bannerHtml = `<div class="balance-banner balance-debe" style="border-color:#60a5fa50;background:linear-gradient(135deg,#60a5fa08,#60a5fa03)">
@@ -1103,10 +1161,12 @@ function renderResumen() {
         <div class="balance-amount" style="color:var(--andre)">${fmt(Math.abs(neto))}</div>
         <div class="balance-sub">${pendientes.length} gasto${pendientes.length!==1?'s':''} pendiente${pendientes.length!==1?'s':''}</div>
       </div>
-      <button class="balance-pay-btn" style="border-color:#60a5fa50;color:var(--andre)" onclick="liquidarTodo('andre')">Andre ya pagó todo</button>
+      <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
+        <button class="balance-pay-btn" style="border-color:#60a5fa50;color:var(--andre)" onclick="liquidarTodo('andre')">✓ Andre pagó todo</button>
+        <button class="balance-pay-btn" style="background:#fbbf2415;border-color:#fbbf2440;color:var(--yellow)" onclick="openParcial('andre',${Math.abs(neto)})">Abonar parte…</button>
+      </div>
     </div>`;
   } else {
-    // neto == 0 pero hay pendientes (se cancelan)
     bannerHtml = `<div class="balance-banner balance-ok">⚖️ Se deben lo mismo — están a mano (${fmt(karla_debe)} cada uno)</div>`;
   }
   document.getElementById('balance-banner').innerHTML = bannerHtml;
@@ -1139,17 +1199,227 @@ function renderResumen() {
 }
 
 function liquidarTodo(quienPago) {
-  // marca como liquidados todos los gastos donde el otro pagó
   state.gastos.forEach(g => {
     if(!g.liquidado && g.quien_pago && g.quien_pago !== 'compartido') {
-      if(quienPago === 'karla' && g.quien_pago === 'andre' && g.karla > 0) g.liquidado = true;
-      if(quienPago === 'andre' && g.quien_pago === 'karla' && g.andre > 0) g.liquidado = true;
+      if(quienPago === 'karla' && g.quien_pago === 'andre' && g.karla > 0) { g.liquidado = true; g.abonado = g.karla; }
+      if(quienPago === 'andre' && g.quien_pago === 'karla' && g.andre > 0) { g.liquidado = true; g.abonado = g.andre; }
     }
   });
   save(); renderResumen();
-  const page = document.getElementById('page-gastos');
-  if(page.classList.contains('active')) renderGastos();
+  if(document.getElementById('page-gastos').classList.contains('active')) renderGastos();
 }
+
+// ── PAGO PARCIAL ──────────────────────────────────────────────
+let _parcialDeudor = null;
+let _parcialTotal  = 0;
+
+function openParcial(deudor, total) {
+  _parcialDeudor = deudor;
+  _parcialTotal  = total;
+  // show oldest pending first
+  const pendientes = getPendientesDeudor(deudor).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  let listHtml = pendientes.slice(0,5).map(g=>{
+    const debe = deudor==='karla' ? g.karla : g.andre;
+    const abonado = g.abonado||0;
+    const restante = debe - abonado;
+    return `<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border)">
+      <span>${g.nombre} <span style="color:var(--muted)">${g.fecha}</span></span>
+      <span style="color:var(--yellow);font-weight:700">${fmt(restante)}</span>
+    </div>`;
+  }).join('');
+  document.getElementById('parcial-info').innerHTML = `
+    <div style="margin-bottom:8px">Total pendiente: <b>${fmt(total)}</b></div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Se abonará empezando por los gastos más viejos:</div>
+    ${listHtml}`;
+  document.getElementById('parcial-monto').value = '';
+  openModal('modal-parcial');
+}
+
+function getPendientesDeudor(deudor) {
+  return state.gastos.filter(g => {
+    if(g.liquidado) return false;
+    if(!g.quien_pago || g.quien_pago === 'compartido') return false;
+    if(deudor === 'karla') return g.quien_pago === 'andre' && g.karla > 0;
+    if(deudor === 'andre') return g.quien_pago === 'karla' && g.andre > 0;
+    return false;
+  });
+}
+
+function confirmarParcial() {
+  let restante = +document.getElementById('parcial-monto').value || 0;
+  if(restante <= 0) return alert('Ingresa un monto mayor a 0.');
+  if(restante > _parcialTotal) return alert(`No puedes abonar más de ${fmt(_parcialTotal)}.`);
+
+  // sort oldest first
+  const pendientes = getPendientesDeudor(_parcialDeudor).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+
+  for(const g of pendientes) {
+    if(restante <= 0) break;
+    const debe = _parcialDeudor === 'karla' ? g.karla : g.andre;
+    const yaAbonado = g.abonado || 0;
+    const porPagar = debe - yaAbonado;
+    if(porPagar <= 0) continue;
+
+    if(restante >= porPagar) {
+      // paga este gasto completo
+      g.liquidado = true;
+      g.abonado = debe;
+      restante -= porPagar;
+    } else {
+      // pago parcial de este gasto
+      g.abonado = yaAbonado + restante;
+      restante = 0;
+    }
+  }
+
+  save();
+  closeModal('modal-parcial');
+  renderResumen();
+  if(document.getElementById('page-gastos').classList.contains('active')) renderGastos();
+}
+
+// ── MODAL GENÉRICO ────────────────────────────────────────────
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// ── EDICIÓN GENÉRICA ──────────────────────────────────────────
+let _editType = null;
+let _editId   = null;
+
+function openEdit(type, id) {
+  _editType = type;
+  _editId   = id;
+  const modal = document.getElementById('modal-edit');
+  const fieldsEl = document.getElementById('modal-edit-fields');
+  const titleEl  = document.getElementById('modal-edit-title');
+
+  if(type === 'gasto') {
+    const g = state.gastos.find(x=>x.id===id);
+    if(!g) return;
+    titleEl.textContent = 'Editar gasto';
+    fieldsEl.innerHTML = `
+      <div class="modal-field"><label>Descripción</label><input id="ed-nombre" value="${g.nombre}"></div>
+      <div class="modal-field"><label>Fecha</label><input id="ed-fecha" type="date" value="${g.fecha}"></div>
+      <div class="modal-field"><label>Total $</label><input id="ed-total" type="number" value="${g.total}"></div>
+      <div class="modal-field"><label>Categoría</label>
+        <select id="ed-cat">
+          ${Object.entries(CATS).filter(([k])=>k!=='msi').map(([k,v])=>`<option value="${k}" ${g.cat===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}
+        </select>
+      </div>
+      <div class="modal-field"><label>¿Quién pagó en físico?</label>
+        <select id="ed-quien-pago">
+          <option value="karla" ${g.quien_pago==='karla'?'selected':''}>Karla</option>
+          <option value="andre" ${g.quien_pago==='andre'?'selected':''}>Andre</option>
+          <option value="compartido" ${g.quien_pago==='compartido'?'selected':''}>Compartido</option>
+        </select>
+      </div>
+      <div class="modal-field"><label>Notas</label><input id="ed-notas" value="${g.notas||''}"></div>`;
+  } else if(type === 'fijo') {
+    const f = state.fijos.find(x=>x.id===id);
+    if(!f) return;
+    titleEl.textContent = 'Editar gasto fijo';
+    fieldsEl.innerHTML = `
+      <div class="modal-field"><label>Nombre</label><input id="ed-nombre" value="${f.nombre}"></div>
+      <div class="modal-field"><label>Monto $</label><input id="ed-total" type="number" value="${f.monto}"></div>
+      <div class="modal-field"><label>Categoría</label>
+        <select id="ed-cat">
+          <option value="entretenimiento" ${f.cat==='entretenimiento'?'selected':''}>🎬 Entretenimiento</option>
+          <option value="fijos" ${f.cat==='fijos'?'selected':''}>💳 Fijo general</option>
+          <option value="otro" ${f.cat==='otro'?'selected':''}>📌 Otro</option>
+        </select>
+      </div>`;
+  } else if(type === 'compra') {
+    const cp = state.compras.find(x=>x.id===id);
+    if(!cp) return;
+    titleEl.textContent = 'Editar compra MSI';
+    fieldsEl.innerHTML = `
+      <div class="modal-field"><label>Nombre</label><input id="ed-nombre" value="${cp.nombre}"></div>
+      <div class="modal-field"><label>Fecha de compra</label><input id="ed-fecha" type="date" value="${cp.fecha}"></div>
+      <div class="modal-field"><label>Tarjeta</label><input id="ed-tarjeta" value="${cp.tarjeta||''}"></div>
+      <div class="modal-field"><label>Notas</label><input id="ed-notas" value="${cp.notas||''}"></div>`;
+  } else if(type === 'ahorro') {
+    const a = (state.ahorros||[]).find(x=>x.id===id);
+    if(!a) return;
+    titleEl.textContent = 'Editar aportación';
+    fieldsEl.innerHTML = `
+      <div class="modal-field"><label>Descripción</label><input id="ed-nombre" value="${a.nombre}"></div>
+      <div class="modal-field"><label>Fecha</label><input id="ed-fecha" type="date" value="${a.fecha}"></div>
+      <div class="modal-field"><label>Monto $</label><input id="ed-total" type="number" value="${a.monto}"></div>
+      <div class="modal-field"><label>¿Quién aportó?</label>
+        <select id="ed-quien">
+          <option value="ambos" ${a.quien==='ambos'?'selected':''}>Ambos</option>
+          <option value="karla" ${a.quien==='karla'?'selected':''}>Karla</option>
+          <option value="andre" ${a.quien==='andre'?'selected':''}>Andre</option>
+        </select>
+      </div>
+      <div class="modal-field"><label>Notas</label><input id="ed-notas" value="${a.notas||''}"></div>`;
+  }
+  openModal('modal-edit');
+}
+
+function saveEdit() {
+  const v = id => { const el=document.getElementById(id); return el?el.value:null; };
+  const n = id => { const el=document.getElementById(id); return el?+el.value||0:0; };
+
+  if(_editType === 'gasto') {
+    const g = state.gastos.find(x=>x.id===_editId);
+    if(!g) return;
+    const oldTotal = g.total;
+    g.nombre     = v('ed-nombre') || g.nombre;
+    g.fecha      = v('ed-fecha')  || g.fecha;
+    g.cat        = v('ed-cat')    || g.cat;
+    g.notas      = v('ed-notas')  || '';
+    g.quien_pago = v('ed-quien-pago') || g.quien_pago;
+    const newTotal = n('ed-total') || oldTotal;
+    if(newTotal !== oldTotal) {
+      const ratio = newTotal / oldTotal;
+      g.total  = newTotal;
+      g.karla  = +(g.karla * ratio).toFixed(2);
+      g.andre  = +(g.andre * ratio).toFixed(2);
+    }
+    if(g.quien_pago === 'compartido') g.liquidado = true;
+  } else if(_editType === 'fijo') {
+    const f = state.fijos.find(x=>x.id===_editId);
+    if(!f) return;
+    f.nombre = v('ed-nombre') || f.nombre;
+    f.cat    = v('ed-cat')    || f.cat;
+    const newMonto = n('ed-total');
+    if(newMonto && newMonto !== f.monto) {
+      const ratio = newMonto / f.monto;
+      f.monto = newMonto;
+      f.karla = +(f.karla * ratio).toFixed(2);
+      f.andre = +(f.andre * ratio).toFixed(2);
+    }
+  } else if(_editType === 'compra') {
+    const cp = state.compras.find(x=>x.id===_editId);
+    if(!cp) return;
+    cp.nombre  = v('ed-nombre')  || cp.nombre;
+    cp.fecha   = v('ed-fecha')   || cp.fecha;
+    cp.tarjeta = v('ed-tarjeta') || cp.tarjeta;
+    cp.notas   = v('ed-notas')   || '';
+  } else if(_editType === 'ahorro') {
+    const a = (state.ahorros||[]).find(x=>x.id===_editId);
+    if(!a) return;
+    a.nombre = v('ed-nombre') || a.nombre;
+    a.fecha  = v('ed-fecha')  || a.fecha;
+    a.monto  = n('ed-total')  || a.monto;
+    a.quien  = v('ed-quien')  || a.quien;
+    a.notas  = v('ed-notas')  || '';
+  }
+
+  save();
+  closeModal('modal-edit');
+  if(_editType==='gasto')   renderGastos();
+  if(_editType==='fijo')    renderFijos();
+  if(_editType==='compra')  renderCompras();
+  if(_editType==='ahorro')  renderAhorro();
+  renderResumen();
+}
+
+// close modals clicking overlay
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', e => { if(e.target===el) el.classList.remove('open'); });
+});
 
 // ── HISTORIAL ─────────────────────────────────────────────────
 function allHistMonths() {
@@ -1317,6 +1587,7 @@ function renderAhorro() {
           </div>
           <span class="ahorro-who ${a.quien}">${whoLabel}</span>
           <div class="ahorro-entry-amt">+${fmt(a.monto)}</div>
+          <button class="edit-btn" onclick="openEdit('ahorro',${a.id})" title="Editar">✏️</button>
           <button class="btn btn-danger" onclick="deleteAhorro(${a.id})">✕</button>
         </div>`;
       });
