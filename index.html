@@ -240,6 +240,7 @@
   .msi-pips { display:flex; gap:3px; flex-wrap:wrap; margin-bottom:8px; }
   .msi-pip { width:10px; height:10px; border-radius:3px; background:var(--border); transition:background .3s; flex-shrink:0; }
   .msi-pip.paid { background:var(--cat-msi); }
+  .msi-pip.half { background:linear-gradient(90deg,var(--cat-msi) 50%,var(--border) 50%); }
   .msi-amounts { display:flex; justify-content:space-between; font-size:12px; font-weight:600; }
   .msi-actions { display:flex; justify-content:space-between; align-items:center; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
   .msi-pay-btn { background:linear-gradient(135deg,#fbbf2430,#fbbf2415); border:1px solid #fbbf2450; color:var(--yellow); border-radius:8px; padding:8px 16px; font-size:13px; font-weight:700; cursor:pointer; transition:all .2s; }
@@ -1010,8 +1011,11 @@ function addCompra() {
   const notas=document.getElementById('comp-notas').value.trim();
   if(!nombre||!fecha||!total) return alert('Llena nombre, fecha y precio.');
   const mensualidad=total/meses;
-  const karla=quien==='karla'?(split==='50/50'?mensualidad/2:mensualidad):quien==='ambos'?mensualidad/2:0;
-  const andre=quien==='andre'?(split==='50/50'?mensualidad/2:mensualidad):quien==='ambos'?mensualidad/2:0;
+  let karla=0, andre=0;
+  if(split==='50/50') { karla=mensualidad/2; andre=mensualidad/2; }
+  else if(quien==='karla') { karla=mensualidad; andre=0; }
+  else if(quien==='andre') { karla=0; andre=mensualidad; }
+  else if(quien==='ambos') { karla=mensualidad/2; andre=mensualidad/2; }
   const end=new Date(fecha); end.setMonth(end.getMonth()+meses);
   state.compras.push({id:Date.now(),nombre,fecha,total,meses,mensualidad,tarjeta,quien,split,notas,karla,andre,end:end.toISOString().slice(0,7)});
   save(); renderCompras();
@@ -1025,17 +1029,27 @@ function deleteCompra(id) {
   state.compras=state.compras.filter(c=>c.id!==id); save(); renderCompras();
 }
 function pagarMes(id) {
-  const c = state.compras.find(x=>x.id===id);
-  if(!c) return;
-  const pagados = (c.pagados||0);
-  if(pagados >= c.meses) return;
-  c.pagados = pagados + 1;
+  const comp = state.compras.find(x=>x.id===id);
+  if(!comp) return;
+  // if split 50/50, track each person separately
+  if(comp.split==='50/50' || (comp.karla>0 && comp.andre>0)) {
+    // figure out who is logged in to know whose button this is
+    // we use a shared pagados counter but track by halves
+    // simplest: one button click = one half-payment recorded
+    const pagados = (comp.pagados||0);
+    if(pagados >= comp.meses*2) return; // both halves of all months paid
+    comp.pagados = pagados + 1;
+  } else {
+    const pagados = (comp.pagados||0);
+    if(pagados >= comp.meses) return;
+    comp.pagados = pagados + 1;
+  }
   save(); renderCompras();
 }
 function despagarMes(id) {
-  const c = state.compras.find(x=>x.id===id);
-  if(!c || !c.pagados) return;
-  c.pagados = c.pagados - 1;
+  const comp = state.compras.find(x=>x.id===id);
+  if(!comp || !comp.pagados) return;
+  comp.pagados = comp.pagados - 1;
   save(); renderCompras();
 }
 function renderCompras() {
@@ -1043,12 +1057,16 @@ function renderCompras() {
   if(!state.compras.length) { el.innerHTML='<div class="empty">Sin compras a meses registradas.</div>'; return; }
 
   function rItem(c) {
-    const pagados = c.pagados || 0;
-    const pendientes = c.meses - pagados;
-    const pct = Math.round(pagados / c.meses * 100);
-    const pagado_total = pagados * c.mensualidad;
-    const restante = c.total - pagado_total;
-    const terminado = pagados >= c.meses;
+    const isSplit = c.split==='50/50' || (c.karla>0 && c.andre>0);
+    const pagados_raw = c.pagados || 0;
+    // for split: every 2 clicks = 1 full month paid
+    const pagados     = isSplit ? Math.floor(pagados_raw/2) : pagados_raw;
+    const halfPending = isSplit ? (pagados_raw % 2 === 1) : false; // one person paid, other hasn't
+    const pendientes  = c.meses - pagados;
+    const pct         = Math.round(pagados_raw / (isSplit ? c.meses*2 : c.meses) * 100);
+    const pagado_total = pagados_raw * (isSplit ? c.mensualidad/2 : c.mensualidad);
+    const restante    = c.total - pagado_total;
+    const terminado   = isSplit ? pagados_raw >= c.meses*2 : pagados_raw >= c.meses;
 
     // progress bar color: yellow → green as it fills
     const barColor = terminado ? 'var(--green)' : 'var(--cat-msi)';
@@ -1058,7 +1076,11 @@ function renderCompras() {
     if(c.meses <= 24) {
       pipsHtml = '<div class="msi-pips">';
       for(let i=0;i<c.meses;i++) {
-        pipsHtml += `<div class="msi-pip ${i<pagados?'paid':''}"></div>`;
+        const halvesForThisMonth = isSplit ? Math.min(2, Math.max(0, pagados_raw - i*2)) : (i<pagados_raw?1:0);
+        const pipClass = isSplit
+          ? (halvesForThisMonth>=2?'paid':halvesForThisMonth===1?'half':'')
+          : (i<pagados_raw?'paid':'');
+        pipsHtml += `<div class="msi-pip ${pipClass}"></div>`;
       }
       pipsHtml += '</div>';
     }
@@ -1082,7 +1104,7 @@ function renderCompras() {
 
       <div class="msi-progress-section">
         <div class="msi-progress-labels">
-          <span>${terminado?'✅ Liquidado':`${pendientes} mes${pendientes!==1?'es':''} restante${pendientes!==1?'s':''}`}</span>
+          <span>${terminado?'✅ Liquidado':halfPending?'⏳ Falta una mitad…':`${pendientes} mes${pendientes!==1?'es':''} restante${pendientes!==1?'s':''}`}</span>
           <span style="color:${barColor};font-weight:700">${pagados}/${c.meses} <span style="color:var(--muted);font-weight:400">(${pct}%)</span></span>
         </div>
         <div class="msi-bar-track">
@@ -1091,7 +1113,8 @@ function renderCompras() {
         ${pipsHtml}
         <div class="msi-amounts">
           <span style="color:var(--green)">Pagado: ${fmt(pagado_total)}</span>
-          ${!terminado?`<span style="color:var(--cat-msi)">Falta: ${fmt(restante)}</span>`:''}
+          ${halfPending?`<span style="color:var(--yellow)">⚠ Falta mitad del mes actual</span>`:''}
+          ${!terminado&&!halfPending?`<span style="color:var(--cat-msi)">Falta: ${fmt(restante)}</span>`:''}
         </div>
       </div>
 
@@ -1108,8 +1131,14 @@ function renderCompras() {
     </div>`;
   }
 
-  const active = state.compras.filter(c=>(c.pagados||0)<c.meses);
-  const done   = state.compras.filter(c=>(c.pagados||0)>=c.meses);
+  const active = state.compras.filter(c=>{
+    const isSplit = c.split==='50/50'||(c.karla>0&&c.andre>0);
+    return (c.pagados||0) < (isSplit?c.meses*2:c.meses);
+  });
+  const done = state.compras.filter(c=>{
+    const isSplit = c.split==='50/50'||(c.karla>0&&c.andre>0);
+    return (c.pagados||0) >= (isSplit?c.meses*2:c.meses);
+  });
 
   // summary of active
   const totalMensual = active.reduce((s,c)=>s+c.mensualidad,0);
@@ -1137,7 +1166,14 @@ function getMonthCats(ym) {
     byCat[cat].items.push(item);
   };
   state.gastos.filter(g=>g.fecha.startsWith(ym)).forEach(g=>add(g.cat,g.total,g.karla,g.andre,g));
-  state.fijos.forEach(f=>add(f.cat||'fijos',f.monto,f.karla,f.andre,{...f,_fijo:true}));
+  state.fijos.forEach(f=>{
+    // el total del gasto fijo siempre es real,
+    // pero quien lo pagó físicamente asume todo de su bolsillo hasta que el otro liquide
+    let realK = f.karla, realA = f.andre;
+    if(f.quien_pago === 'karla') { realK = f.monto; realA = 0; }
+    else if(f.quien_pago === 'andre') { realK = 0; realA = f.monto; }
+    add(f.cat||'fijos', f.monto, realK, realA, {...f,_fijo:true});
+  });
   state.compras.filter(c=>c.fecha.slice(0,7)<=ym&&c.end>=ym).forEach(c=>add('msi',c.mensualidad,c.karla,c.andre,{...c,_msi:true}));
   return byCat;
 }
