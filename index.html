@@ -749,6 +749,7 @@ async function loadFromGitHub() {
     const local = localStorage.getItem('fka-state');
     if(local) state = JSON.parse(local);
   }
+  checkFijosReset();
   populateMonthSelect('resumen-mes');
   populateMonthSelect('gastos-mes');
   renderResumen();
@@ -794,6 +795,30 @@ async function saveToGitHub() {
   } catch(e) {
     setSyncState('err', 'Error al guardar');
   }
+}
+
+function checkFijosReset() {
+  const mesActual = new Date().toISOString().slice(0,7); // "2026-08"
+  const ultimoMes = state.fijos_ultimo_mes || '';
+
+  if(ultimoMes === mesActual) return; // ya se revisó este mes, nada que hacer
+
+  // es un mes nuevo — resetear liquidado de todos los fijos
+  if(ultimoMes && ultimoMes !== mesActual) {
+    let huboReset = false;
+    state.fijos.forEach(f => {
+      if(f.liquidado) {
+        f.liquidado = false;
+        huboReset = true;
+      }
+    });
+    if(huboReset) {
+      setSyncState('loading', 'Nuevo mes — reiniciando fijos…');
+    }
+  }
+
+  state.fijos_ultimo_mes = mesActual;
+  save();
 }
 
 function save() {
@@ -2020,6 +2045,62 @@ if(savedUser && savedPAT && savedPass) {
   document.getElementById('login-user').value = savedUser;
   showApp();
 }
+
+// ── KEYBOARD NAV (flechas izquierda/derecha = cambiar pestaña) ──
+const PAGES = ['resumen','gastos','fijos','compras','historial','ahorro'];
+document.addEventListener('keydown', e => {
+  // skip if typing in an input/select
+  if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)) return;
+  // skip if a modal is open
+  if(document.querySelector('.modal-overlay.open')) return;
+
+  if(e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+    const activeBtn = document.querySelector('nav button.active');
+    if(!activeBtn) return;
+    const navBtns = [...document.querySelectorAll('nav button')];
+    const idx = navBtns.indexOf(activeBtn);
+    let next = e.key === 'ArrowRight' ? idx + 1 : idx - 1;
+    if(next < 0) next = navBtns.length - 1;
+    if(next >= navBtns.length) next = 0;
+    navBtns[next].click();
+    e.preventDefault();
+  }
+});
+
+// ── MOUSE DRAG FOR CAROUSELS ──
+function addDragScroll(el) {
+  if(!el) return;
+  let isDown = false, startX = 0, scrollLeft = 0;
+  el.addEventListener('mousedown', e => {
+    isDown = true;
+    el.style.cursor = 'grabbing';
+    startX = e.pageX - el.offsetLeft;
+    scrollLeft = el.scrollLeft;
+    e.preventDefault();
+  });
+  el.addEventListener('mouseleave', () => { isDown = false; el.style.cursor = 'grab'; });
+  el.addEventListener('mouseup',    () => { isDown = false; el.style.cursor = 'grab'; });
+  el.addEventListener('mousemove',  e => {
+    if(!isDown) return;
+    const x    = e.pageX - el.offsetLeft;
+    const walk = (x - startX) * 1.2;
+    el.scrollLeft = scrollLeft - walk;
+  });
+  el.style.cursor = 'grab';
+}
+
+// attach drag to carousels whenever they're rendered
+// use a MutationObserver so it catches dynamically created carousels
+const _dragObserver = new MutationObserver(() => {
+  ['balance-carousel','pend-carousel'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el && !el._dragAttached) {
+      addDragScroll(el);
+      el._dragAttached = true;
+    }
+  });
+});
+_dragObserver.observe(document.body, { childList: true, subtree: true });
 </script>
 </body>
 </html>
