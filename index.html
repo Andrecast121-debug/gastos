@@ -187,16 +187,26 @@
   .edit-btn:hover { background:var(--surface); color:var(--text); }
 
   /* BALANCE / LIQUIDACIÓN */
-  .balance-banner { border-radius:var(--radius); padding:16px 18px; margin-bottom:16px; border:1px solid; display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
-  .balance-ok { background:linear-gradient(135deg,#34d39908,#34d39903); border-color:#34d39930; color:var(--green); font-size:14px; font-weight:600; justify-content:center; }
-  .balance-debe { background:linear-gradient(135deg,#f472b608,#f472b603); border-color:#f472b630; }
-  .balance-icon { font-size:28px; flex-shrink:0; }
-  .balance-text { flex:1; }
-  .balance-title { font-size:12px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:.06em; }
-  .balance-amount { font-size:26px; font-weight:900; color:var(--karla); line-height:1.1; }
-  .balance-sub { font-size:12px; color:var(--muted); margin-top:2px; }
-  .balance-pay-btn { background:#f472b615; border:1px solid #f472b640; color:var(--karla); border-radius:8px; padding:9px 14px; font-size:13px; font-weight:700; cursor:pointer; white-space:nowrap; transition:all .2s; }
-  .balance-pay-btn:hover { background:#f472b625; }
+  /* CARRUSEL DE BALANCE */
+  .balance-carousel { display:flex; gap:10px; overflow-x:auto; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; margin-bottom:16px; padding-bottom:6px; }
+  .balance-carousel::-webkit-scrollbar { height:3px; }
+  .balance-carousel::-webkit-scrollbar-thumb { background:var(--border); border-radius:99px; }
+  .balance-card { flex:0 0 calc(100% - 2px); scroll-snap-align:start; border-radius:var(--radius); padding:16px 18px; border:1px solid; display:flex; align-items:center; gap:14px; }
+  .balance-ok  { background:linear-gradient(135deg,#34d39908,#34d39903); border-color:#34d39930; }
+  .balance-debe-k { background:linear-gradient(135deg,#f472b608,#f472b603); border-color:#f472b630; }
+  .balance-debe-a { background:linear-gradient(135deg,#60a5fa08,#60a5fa03); border-color:#60a5fa30; }
+  .balance-icon { font-size:26px; flex-shrink:0; }
+  .balance-text { flex:1; min-width:0; }
+  .balance-title { font-size:11px; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:.06em; }
+  .balance-amount { font-size:24px; font-weight:900; line-height:1.1; margin:2px 0; }
+  .balance-ok-msg { font-size:14px; font-weight:700; color:var(--green); }
+  .balance-sub { font-size:11px; color:var(--muted); margin-top:2px; }
+  .balance-btns { display:flex; flex-direction:column; gap:6px; flex-shrink:0; }
+  .balance-pay-btn { border-radius:8px; padding:8px 12px; font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap; transition:all .2s; border:1px solid; }
+  .balance-pay-btn:hover { opacity:.85; }
+  .balance-dots { display:flex; justify-content:center; gap:5px; margin-bottom:12px; }
+  .balance-dot { width:6px; height:6px; border-radius:50%; background:var(--border); transition:background .2s; }
+  .balance-dot.active { background:var(--shared); }
   .entry-liquidada { opacity:.55; }
   .liq-badge { background:#34d39920; color:var(--green); font-size:10px; padding:1px 7px; border-radius:99px; font-weight:700; }
   .pagador-tag { font-size:11px; padding:2px 7px; border-radius:99px; font-weight:600; }
@@ -1180,39 +1190,44 @@ function renderResumen() {
   const totalPend = pendientes.length + fijosPend.length;
   const neto = karla_debe - andre_debe;
 
-  let bannerHtml = '';
-  if(pendientes.length === 0) {
-    bannerHtml = `<div class="balance-banner balance-ok">✅ Sin cuentas pendientes entre ustedes</div>`;
-  } else if(neto > 0) {
-    bannerHtml = `<div class="balance-banner balance-debe">
+  // ── dos tarjetas: Karla→Andre y Andre→Karla ──
+  function makeCard(deudor, acreedor, monto, colorClass, amountColor, payColor, payBorderColor) {
+    if(monto <= 0) {
+      return `<div class="balance-card balance-ok">
+        <div class="balance-icon">✅</div>
+        <div class="balance-text">
+          <div class="balance-ok-msg">${deudor} no le debe nada a ${acreedor}</div>
+        </div>
+      </div>`;
+    }
+    const pendK = deudor==='Karla' ? karla_debe : andre_debe;
+    const quien = deudor==='Karla' ? 'karla' : 'andre';
+    return `<div class="balance-card ${colorClass}">
       <div class="balance-icon">💸</div>
       <div class="balance-text">
-        <div class="balance-title">Karla le debe a Andre</div>
-        <div class="balance-amount">${fmt(neto)}</div>
+        <div class="balance-title">${deudor} le debe a ${acreedor}</div>
+        <div class="balance-amount" style="color:${amountColor}">${fmt(monto)}</div>
         <div class="balance-sub">${totalPend} pendiente${totalPend!==1?'s':''}</div>
       </div>
-      <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
-        <button class="balance-pay-btn" onclick="liquidarTodo('karla')">✓ Karla pagó todo</button>
-        <button class="balance-pay-btn" style="background:#fbbf2415;border-color:#fbbf2440;color:var(--yellow)" onclick="openParcial('karla',${neto})">Abonar parte…</button>
+      <div class="balance-btns">
+        <button class="balance-pay-btn" style="background:${payColor}15;border-color:${payColor}40;color:${payColor}" onclick="liquidarTodo('${quien}')">✓ ${deudor} pagó todo</button>
+        <button class="balance-pay-btn" style="background:#fbbf2415;border-color:#fbbf2440;color:var(--yellow)" onclick="openParcial('${quien}',${monto})">Abonar parte…</button>
       </div>
     </div>`;
-  } else if(neto < 0) {
-    bannerHtml = `<div class="balance-banner balance-debe" style="border-color:#60a5fa50;background:linear-gradient(135deg,#60a5fa08,#60a5fa03)">
-      <div class="balance-icon">💸</div>
-      <div class="balance-text">
-        <div class="balance-title">Andre le debe a Karla</div>
-        <div class="balance-amount" style="color:var(--andre)">${fmt(Math.abs(neto))}</div>
-        <div class="balance-sub">${totalPend} pendiente${totalPend!==1?'s':''}</div>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
-        <button class="balance-pay-btn" style="border-color:#60a5fa50;color:var(--andre)" onclick="liquidarTodo('andre')">✓ Andre pagó todo</button>
-        <button class="balance-pay-btn" style="background:#fbbf2415;border-color:#fbbf2440;color:var(--yellow)" onclick="openParcial('andre',${Math.abs(neto)})">Abonar parte…</button>
-      </div>
-    </div>`;
-  } else {
-    bannerHtml = `<div class="balance-banner balance-ok">⚖️ Se deben lo mismo — están a mano (${fmt(karla_debe)} cada uno)</div>`;
   }
-  document.getElementById('balance-banner').innerHTML = bannerHtml;
+
+  const cardKarla = makeCard('Karla','Andre', karla_debe, 'balance-debe-k', 'var(--karla)', '#f472b6', '#f472b6');
+  const cardAndre = makeCard('Andre','Karla', andre_debe, 'balance-debe-a', 'var(--andre)', '#60a5fa', '#60a5fa');
+
+  document.getElementById('balance-banner').innerHTML = `
+    <div class="balance-carousel" id="balance-carousel" onscroll="updateBalanceDots()">
+      ${cardKarla}
+      ${cardAndre}
+    </div>
+    <div class="balance-dots">
+      <div class="balance-dot active" id="bdot-0"></div>
+      <div class="balance-dot" id="bdot-1"></div>
+    </div>`;
 
   // lista de pendientes detallada
   let pendHtml = '';
@@ -1258,6 +1273,13 @@ function renderResumen() {
     }
   }
   document.getElementById('pendientes-section').innerHTML = pendHtml;
+}
+
+function updateBalanceDots() {
+  const el = document.getElementById('balance-carousel');
+  if(!el) return;
+  const idx = Math.round(el.scrollLeft / el.offsetWidth);
+  document.querySelectorAll('.balance-dot').forEach((d,i) => d.classList.toggle('active', i===idx));
 }
 
 function liquidarTodo(quienPago) {
