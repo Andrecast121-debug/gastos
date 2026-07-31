@@ -154,6 +154,32 @@
   .hist-empty { text-align:center; color:var(--muted); padding:60px 20px; font-size:14px; line-height:1.6; }
   .hist-top-stats { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:20px; }
   @media(max-width:500px) { .hist-top-stats { grid-template-columns:1fr 1fr; } }
+
+  /* AHORRO */
+  .ahorro-hero { background:linear-gradient(135deg,#1a1a2e,#16213e); border:1px solid var(--border); border-radius:var(--radius); padding:24px 20px; margin-bottom:16px; text-align:center; }
+  .ahorro-meta-label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px; }
+  .ahorro-total { font-size:42px; font-weight:900; color:var(--green); line-height:1; }
+  .ahorro-total span { font-size:20px; font-weight:600; color:var(--muted); }
+  .ahorro-meta-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:16px; }
+  .ahorro-meta-item { background:#ffffff08; border-radius:8px; padding:10px; }
+  .ahorro-meta-val { font-size:16px; font-weight:700; }
+  .ahorro-progress-wrap { margin-top:16px; }
+  .ahorro-progress-label { display:flex; justify-content:space-between; font-size:12px; color:var(--muted); margin-bottom:6px; }
+  .ahorro-progress-track { background:var(--border); border-radius:99px; height:10px; overflow:hidden; }
+  .ahorro-progress-fill { height:100%; border-radius:99px; background:linear-gradient(90deg,var(--green),#a7f3d0); transition:width .6s cubic-bezier(.4,0,.2,1); }
+  .ahorro-goal-form { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px; margin-bottom:14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .ahorro-goal-form label { font-size:12px; color:var(--muted); white-space:nowrap; }
+  .ahorro-goal-form input { flex:1; min-width:120px; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:8px 12px; color:var(--text); font-size:14px; outline:none; }
+  .ahorro-goal-form input:focus { border-color:var(--green); }
+  .ahorro-entry { display:flex; align-items:center; gap:10px; padding:11px 14px; background:var(--surface); border-radius:8px; margin-bottom:8px; border:1px solid var(--border); }
+  .ahorro-entry-main { flex:1; }
+  .ahorro-entry-name { font-size:14px; font-weight:600; }
+  .ahorro-entry-sub { font-size:12px; color:var(--muted); margin-top:2px; }
+  .ahorro-entry-amt { font-weight:800; font-size:16px; color:var(--green); white-space:nowrap; }
+  .ahorro-who { font-size:11px; padding:2px 7px; border-radius:99px; font-weight:600; }
+  .ahorro-who.karla { background:#f472b615; color:var(--karla); }
+  .ahorro-who.andre { background:#60a5fa15; color:var(--andre); }
+  .ahorro-who.ambos { background:#a78bfa15; color:var(--shared); }
 </style>
 </head>
 <body>
@@ -210,6 +236,7 @@
     <button onclick="showPage('fijos',event)">Fijos</button>
     <button onclick="showPage('compras',event)">MSI</button>
     <button onclick="showPage('historial',event)">Historial</button>
+    <button onclick="showPage('ahorro',event)">Ahorro</button>
   </nav>
 
   <main>
@@ -404,6 +431,11 @@
     <div id="page-historial" class="page">
       <div id="historial-content"></div>
     </div>
+
+    <!-- AHORRO -->
+    <div id="page-ahorro" class="page">
+      <div id="ahorro-content"></div>
+    </div>
   </main>
 </div>
 
@@ -522,7 +554,7 @@ async function loadFromGitHub() {
     );
     if(r.status === 404) {
       fileSHA = null;
-      state = { fijos:[], gastos:[], compras:[] };
+      state = { fijos:[], gastos:[], compras:[], ahorros:[], ahorro_meta:0 };
       setSyncState('ok', 'Listo — primera vez, datos vacíos');
     } else if(r.ok) {
       const json = await r.json();
@@ -543,7 +575,7 @@ async function loadFromGitHub() {
         document.getElementById('login-err').style.display='block';
         return;
       }
-      state = { fijos:[], gastos:[], compras:[], ...parsed };
+      state = { fijos:[], gastos:[], compras:[], ahorros:[], ahorro_meta:0, ...parsed };
       setSyncState('ok', 'Sincronizado · ' + new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}));
     } else {
       throw new Error('fetch failed');
@@ -618,6 +650,7 @@ function showPage(id, e) {
   if(id==='fijos')     renderFijos();
   if(id==='compras')   renderCompras();
   if(id==='historial') renderHistorial();
+  if(id==='ahorro')    { renderAhorro(); const today=new Date().toISOString().split('T')[0]; setTimeout(()=>{ const el=document.getElementById('ah-fecha'); if(el) el.value=today; },50); }
 }
 
 function toggleForm(type) {
@@ -958,6 +991,164 @@ function toggleHist(uid) {
   const det=document.getElementById(uid), chev=document.getElementById('chev-'+uid);
   det.classList.toggle('open',!det.classList.contains('open'));
   chev.classList.toggle('open',!chev.classList.contains('open'));
+}
+
+// ── AHORRO ────────────────────────────────────────────────────
+function renderAhorro() {
+  const el = document.getElementById('ahorro-content');
+  const ahorros = state.ahorros || [];
+  const meta = state.ahorro_meta || 0;
+  const total = ahorros.reduce((s,a) => s + a.monto, 0);
+  const totalK = ahorros.reduce((s,a) => s + (a.quien==='karla'?a.monto:a.quien==='ambos'?a.monto/2:0), 0);
+  const totalA = ahorros.reduce((s,a) => s + (a.quien==='andre'?a.monto:a.quien==='ambos'?a.monto/2:0), 0);
+  const pct = meta > 0 ? Math.min(100, Math.round(total / meta * 100)) : 0;
+
+  let heroHtml = `<div class="ahorro-hero">
+    <div class="ahorro-meta-label">Total ahorrado</div>
+    <div class="ahorro-total">${fmt(total)}</div>
+    <div class="ahorro-meta-grid">
+      <div class="ahorro-meta-item"><div style="font-size:11px;color:var(--muted);margin-bottom:3px">Karla</div><div class="ahorro-meta-val" style="color:var(--karla)">${fmt(totalK)}</div></div>
+      <div class="ahorro-meta-item"><div style="font-size:11px;color:var(--muted);margin-bottom:3px">Andre</div><div class="ahorro-meta-val" style="color:var(--andre)">${fmt(totalA)}</div></div>
+    </div>
+    ${meta > 0 ? `<div class="ahorro-progress-wrap">
+      <div class="ahorro-progress-label"><span>Meta: ${fmt(meta)}</span><span style="color:var(--green);font-weight:700">${pct}%</span></div>
+      <div class="ahorro-progress-track"><div class="ahorro-progress-fill" style="width:${pct}%"></div></div>
+      ${total >= meta ? '<div style="margin-top:8px;font-size:13px;color:var(--green);font-weight:700">🎉 ¡Meta alcanzada!</div>' : `<div style="margin-top:6px;font-size:12px;color:var(--muted)">Faltan ${fmt(meta - total)}</div>`}
+    </div>` : ''}
+  </div>`;
+
+  // meta goal editor
+  let goalHtml = `<div class="ahorro-goal-form">
+    <label>🎯 Meta de ahorro:</label>
+    <input id="ahorro-meta-input" type="number" placeholder="0.00" value="${meta||''}" oninput="updateMeta()">
+    <span style="font-size:12px;color:var(--muted)">Deja vacío si no tienes meta</span>
+  </div>`;
+
+  // add form
+  let formHtml = `<div class="add-toggle" onclick="toggleForm('ahorro')">＋ Agregar aportación</div>
+  <div class="card add-form" id="form-ahorro" style="display:none">
+    <div class="card-title">Nueva aportación</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Descripción</label>
+        <input id="ah-nombre" placeholder="ej. quincena, extra, regalo…">
+      </div>
+      <div class="form-group">
+        <label>Fecha</label>
+        <input id="ah-fecha" type="date">
+      </div>
+      <div class="form-group">
+        <label>Monto $</label>
+        <input id="ah-monto" type="number" placeholder="0.00">
+      </div>
+      <div class="form-group">
+        <label>¿Quién aporta?</label>
+        <select id="ah-quien">
+          <option value="ambos">Ambos (juntos)</option>
+          <option value="karla">Karla</option>
+          <option value="andre">Andre</option>
+        </select>
+      </div>
+      <div class="form-group span2">
+        <label>Notas (opcional)</label>
+        <input id="ah-notas" placeholder="opcional">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="addAhorro()">Guardar</button>
+      <button class="btn btn-sm" style="background:var(--surface);border:1px solid var(--border)" onclick="toggleForm('ahorro')">Cancelar</button>
+    </div>
+  </div>`;
+
+  // list
+  let listHtml = '';
+  if(!ahorros.length) {
+    listHtml = '<div class="empty">Sin aportaciones aún. ¡Agrega la primera!</div>';
+  } else {
+    const sorted = [...ahorros].sort((a,b) => b.fecha.localeCompare(a.fecha));
+    // group by month
+    const byMonth = {};
+    sorted.forEach(a => {
+      const ym = a.fecha.slice(0,7);
+      if(!byMonth[ym]) byMonth[ym] = [];
+      byMonth[ym].push(a);
+    });
+    Object.entries(byMonth).forEach(([ym, items]) => {
+      const mTotal = items.reduce((s,a) => s + a.monto, 0);
+      listHtml += `<div class="section-header" style="margin-top:16px">
+        <h2>${formatMonth(ym)}</h2>
+        <span style="font-weight:700;color:var(--green)">${fmt(mTotal)}</span>
+      </div>`;
+      items.forEach(a => {
+        const whoLabel = a.quien==='ambos'?'Ambos':a.quien==='karla'?'Karla':'Andre';
+        listHtml += `<div class="ahorro-entry">
+          <div class="ahorro-entry-main">
+            <div class="ahorro-entry-name">${a.nombre}</div>
+            <div class="ahorro-entry-sub">${a.fecha}${a.notas?' · '+a.notas:''}</div>
+          </div>
+          <span class="ahorro-who ${a.quien}">${whoLabel}</span>
+          <div class="ahorro-entry-amt">+${fmt(a.monto)}</div>
+          <button class="btn btn-danger" onclick="deleteAhorro(${a.id})">✕</button>
+        </div>`;
+      });
+    });
+  }
+
+  el.innerHTML = heroHtml + goalHtml + formHtml + listHtml;
+  // restore meta input focus state
+}
+
+function updateMeta() {
+  const val = +document.getElementById('ahorro-meta-input').value || 0;
+  if(!state.ahorros) state.ahorros = [];
+  state.ahorro_meta = val;
+  save();
+  // re-render hero only (avoid losing focus)
+  renderAhorroHero();
+}
+
+function renderAhorroHero() {
+  const ahorros = state.ahorros || [];
+  const meta = state.ahorro_meta || 0;
+  const total = ahorros.reduce((s,a) => s + a.monto, 0);
+  const totalK = ahorros.reduce((s,a) => s + (a.quien==='karla'?a.monto:a.quien==='ambos'?a.monto/2:0), 0);
+  const totalA = ahorros.reduce((s,a) => s + (a.quien==='andre'?a.monto:a.quien==='ambos'?a.monto/2:0), 0);
+  const pct = meta > 0 ? Math.min(100, Math.round(total / meta * 100)) : 0;
+  const hero = document.querySelector('.ahorro-hero');
+  if(hero) hero.innerHTML = `
+    <div class="ahorro-meta-label">Total ahorrado</div>
+    <div class="ahorro-total">${fmt(total)}</div>
+    <div class="ahorro-meta-grid">
+      <div class="ahorro-meta-item"><div style="font-size:11px;color:var(--muted);margin-bottom:3px">Karla</div><div class="ahorro-meta-val" style="color:var(--karla)">${fmt(totalK)}</div></div>
+      <div class="ahorro-meta-item"><div style="font-size:11px;color:var(--muted);margin-bottom:3px">Andre</div><div class="ahorro-meta-val" style="color:var(--andre)">${fmt(totalA)}</div></div>
+    </div>
+    ${meta > 0 ? `<div class="ahorro-progress-wrap">
+      <div class="ahorro-progress-label"><span>Meta: ${fmt(meta)}</span><span style="color:var(--green);font-weight:700">${pct}%</span></div>
+      <div class="ahorro-progress-track"><div class="ahorro-progress-fill" style="width:${pct}%"></div></div>
+      ${total >= meta ? '<div style="margin-top:8px;font-size:13px;color:var(--green);font-weight:700">🎉 ¡Meta alcanzada!</div>' : `<div style="margin-top:6px;font-size:12px;color:var(--muted)">Faltan ${fmt(meta - total)}</div>`}
+    </div>` : ''}`;
+}
+
+function addAhorro() {
+  const nombre = document.getElementById('ah-nombre').value.trim();
+  const fecha  = document.getElementById('ah-fecha').value;
+  const monto  = +document.getElementById('ah-monto').value || 0;
+  const quien  = document.getElementById('ah-quien').value;
+  const notas  = document.getElementById('ah-notas').value.trim();
+  if(!nombre || !fecha || !monto) return alert('Llena descripción, fecha y monto.');
+  if(!state.ahorros) state.ahorros = [];
+  state.ahorros.push({ id:Date.now(), nombre, fecha, monto, quien, notas });
+  save(); renderAhorro();
+  document.getElementById('ah-nombre').value = '';
+  document.getElementById('ah-monto').value  = '';
+  document.getElementById('ah-notas').value  = '';
+  toggleForm('ahorro');
+}
+
+function deleteAhorro(id) {
+  if(!confirm('¿Eliminar esta aportación?')) return;
+  state.ahorros = (state.ahorros||[]).filter(a => a.id !== id);
+  save(); renderAhorro();
 }
 
 // ── INIT ──────────────────────────────────────────────────────
