@@ -1331,16 +1331,35 @@ function openEdit(type, id) {
     const f = state.fijos.find(x=>x.id===id);
     if(!f) return;
     titleEl.textContent = 'Editar gasto fijo';
+    const fPagador = f.pagador||'karla';
     fieldsEl.innerHTML = `
       <div class="modal-field"><label>Nombre</label><input id="ed-nombre" value="${f.nombre}"></div>
-      <div class="modal-field"><label>Monto $</label><input id="ed-total" type="number" value="${f.monto}"></div>
-      <div class="modal-field"><label>Categoría</label>
+      <div class="modal-field"><label>Monto $</label><input id="ed-total" type="number" value="${f.monto}" oninput="previewFijoSplit()"></div>
+      <div class="modal-field"><label>¿Quién paga?</label>
+        <select id="ed-pagador" onchange="previewFijoSplit()">
+          <option value="karla"  ${fPagador==='karla'? 'selected':''}>Karla (paga completo)</option>
+          <option value="andre"  ${fPagador==='andre'? 'selected':''}>Andre (paga completo)</option>
+          <option value="ambos"  ${fPagador==='ambos'? 'selected':''}>Ambos (50/50)</option>
+          <option value="custom" ${fPagador==='custom'?'selected':''}>Personalizado</option>
+        </select>
+      </div>
+      <div class="modal-field" id="ed-k-wrap" style="display:${fPagador==='custom'?'block':'none'}">
+        <label>Parte Karla $</label>
+        <input id="ed-karla" type="number" value="${f.karla||0}" oninput="previewFijoSplitCustom('karla')">
+      </div>
+      <div class="modal-field" id="ed-a-wrap" style="display:${fPagador==='custom'?'block':'none'}">
+        <label>Parte Andre $</label>
+        <input id="ed-andre" type="number" value="${f.andre||0}" oninput="previewFijoSplitCustom('andre')">
+      </div>
+      <div id="ed-split-preview" style="font-size:12px;color:var(--muted);margin-top:4px"></div>
+      <div class="modal-field" style="margin-top:8px"><label>Categoría</label>
         <select id="ed-cat">
           <option value="entretenimiento" ${f.cat==='entretenimiento'?'selected':''}>🎬 Entretenimiento</option>
           <option value="fijos" ${f.cat==='fijos'?'selected':''}>💳 Fijo general</option>
           <option value="otro" ${f.cat==='otro'?'selected':''}>📌 Otro</option>
         </select>
       </div>`;
+    previewFijoSplit();
   } else if(type === 'compra') {
     const cp = state.compras.find(x=>x.id===id);
     if(!cp) return;
@@ -1370,6 +1389,40 @@ function openEdit(type, id) {
   openModal('modal-edit');
 }
 
+function previewFijoSplit() {
+  const pagador = document.getElementById('ed-pagador');
+  const kWrap   = document.getElementById('ed-k-wrap');
+  const aWrap   = document.getElementById('ed-a-wrap');
+  const preview = document.getElementById('ed-split-preview');
+  if(!pagador) return;
+  const val   = pagador.value;
+  const monto = +document.getElementById('ed-total').value || 0;
+  kWrap.style.display = val==='custom' ? 'block' : 'none';
+  aWrap.style.display = val==='custom' ? 'block' : 'none';
+  let k=0, a=0;
+  if(val==='karla')  { k=monto; a=0; }
+  else if(val==='andre')  { k=0; a=monto; }
+  else if(val==='ambos')  { k=monto/2; a=monto/2; }
+  else { k=+document.getElementById('ed-karla').value||0; a=+document.getElementById('ed-andre').value||0; }
+  if(preview && val!=='custom') preview.textContent = monto>0 ? `Karla: ${fmt(k)}  /  Andre: ${fmt(a)}` : '';
+}
+function previewFijoSplitCustom(who) {
+  const monto = +document.getElementById('ed-total').value||0;
+  const preview = document.getElementById('ed-split-preview');
+  if(who==='karla') {
+    const k = +document.getElementById('ed-karla').value||0;
+    document.getElementById('ed-andre').value = Math.max(0,monto-k).toFixed(2);
+  } else {
+    const a = +document.getElementById('ed-andre').value||0;
+    document.getElementById('ed-karla').value = Math.max(0,monto-a).toFixed(2);
+  }
+  if(preview) {
+    const k=+document.getElementById('ed-karla').value||0;
+    const a=+document.getElementById('ed-andre').value||0;
+    preview.textContent = `Karla: ${fmt(k)}  /  Andre: ${fmt(a)}`;
+  }
+}
+
 function saveEdit() {
   const v = id => { const el=document.getElementById(id); return el?el.value:null; };
   const n = id => { const el=document.getElementById(id); return el?+el.value||0:0; };
@@ -1394,14 +1447,18 @@ function saveEdit() {
   } else if(_editType === 'fijo') {
     const f = state.fijos.find(x=>x.id===_editId);
     if(!f) return;
-    f.nombre = v('ed-nombre') || f.nombre;
-    f.cat    = v('ed-cat')    || f.cat;
-    const newMonto = n('ed-total');
-    if(newMonto && newMonto !== f.monto) {
-      const ratio = newMonto / f.monto;
-      f.monto = newMonto;
-      f.karla = +(f.karla * ratio).toFixed(2);
-      f.andre = +(f.andre * ratio).toFixed(2);
+    f.nombre   = v('ed-nombre') || f.nombre;
+    f.cat      = v('ed-cat')    || f.cat;
+    const newMonto   = n('ed-total') || f.monto;
+    const newPagador = v('ed-pagador') || f.pagador || 'karla';
+    f.monto   = newMonto;
+    f.pagador = newPagador;
+    if(newPagador === 'karla')  { f.karla = newMonto; f.andre = 0; }
+    else if(newPagador === 'andre')  { f.karla = 0; f.andre = newMonto; }
+    else if(newPagador === 'ambos')  { f.karla = +(newMonto/2).toFixed(2); f.andre = +(newMonto/2).toFixed(2); }
+    else if(newPagador === 'custom') {
+      f.karla = n('ed-karla');
+      f.andre = n('ed-andre');
     }
   } else if(_editType === 'compra') {
     const cp = state.compras.find(x=>x.id===_editId);
