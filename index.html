@@ -187,6 +187,25 @@
   .edit-btn:hover { background:var(--surface); color:var(--text); }
 
   /* BALANCE / LIQUIDACIÓN */
+  /* CARRUSEL PENDIENTES MES */
+  .pend-carousel-wrap { margin-top:14px; }
+  .pend-carousel-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin-bottom:10px; }
+  .pend-carousel { display:flex; gap:10px; overflow-x:auto; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; padding-bottom:6px; }
+  .pend-carousel::-webkit-scrollbar { height:3px; }
+  .pend-carousel::-webkit-scrollbar-thumb { background:var(--border); border-radius:99px; }
+  .pend-card { flex:0 0 calc(100% - 2px); scroll-snap-align:start; border-radius:var(--radius); padding:16px 18px; border:1px solid var(--border); background:var(--card); }
+  .pend-card-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); margin-bottom:6px; }
+  .pend-card-amount { font-size:28px; font-weight:900; line-height:1.1; margin-bottom:4px; }
+  .pend-card-sub { font-size:12px; color:var(--muted); }
+  .pend-card-rows { margin-top:10px; display:flex; flex-direction:column; gap:4px; }
+  .pend-card-row { display:flex; justify-content:space-between; font-size:12px; padding:4px 0; border-bottom:1px solid var(--border); }
+  .pend-card-row:last-child { border:none; }
+  .pend-card-row-name { color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:60%; }
+  .pend-card-row-amt { font-weight:700; flex-shrink:0; }
+  .pend-dots { display:flex; justify-content:center; gap:5px; margin-top:8px; }
+  .pend-dot { width:6px; height:6px; border-radius:50%; background:var(--border); transition:background .2s; }
+  .pend-dot.active { background:var(--shared); }
+
   /* CARRUSEL DE BALANCE */
   .balance-carousel { display:flex; gap:10px; overflow-x:auto; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; margin-bottom:16px; padding-bottom:6px; }
   .balance-carousel::-webkit-scrollbar { height:3px; }
@@ -344,6 +363,7 @@
         <div id="resumen-breakdown"></div>
       </div>
       <div id="pendientes-section"></div>
+      <div id="pendientes-mes-section"></div>
     </div>
 
     <!-- GASTOS -->
@@ -1309,6 +1329,84 @@ function renderResumen() {
     }
   }
   document.getElementById('pendientes-section').innerHTML = pendHtml;
+
+  // ── CARRUSEL: pendientes del mes por persona ──
+  const mesGastosPend = state.gastos.filter(g =>
+    !g.liquidado && g.quien_pago && g.quien_pago !== 'compartido' && g.fecha.startsWith(mes)
+  );
+  const mesFijosPend = state.fijos.filter(f =>
+    !f.liquidado && f.quien_pago && f.quien_pago !== 'compartido' &&
+    ((f.quien_pago==='karla'&&f.andre>0)||(f.quien_pago==='andre'&&f.karla>0))
+  );
+
+  // lo que Karla debe este mes (gastos donde Andre pagó + fijos donde Andre pagó)
+  const pendK_gastos = mesGastosPend.filter(g=>g.quien_pago==='andre'&&g.karla>0);
+  const pendK_fijos  = mesFijosPend.filter(f=>f.quien_pago==='andre'&&f.karla>0);
+  const pendK_total  = pendK_gastos.reduce((s,g)=>s+(g.karla-(g.abonado||0)),0)
+                     + pendK_fijos.reduce((s,f)=>s+f.karla,0);
+
+  // lo que Andre debe este mes (gastos donde Karla pagó + fijos donde Karla pagó)
+  const pendA_gastos = mesGastosPend.filter(g=>g.quien_pago==='karla'&&g.andre>0);
+  const pendA_fijos  = mesFijosPend.filter(f=>f.quien_pago==='karla'&&f.andre>0);
+  const pendA_total  = pendA_gastos.reduce((s,g)=>s+(g.andre-(g.abonado||0)),0)
+                     + pendA_fijos.reduce((s,f)=>s+f.andre,0);
+
+  const pendTotal = pendK_total + pendA_total;
+
+  function makePendCard(label, amount, color, items, dotId) {
+    const topItems = items.slice(0,4);
+    const rowsHtml = topItems.map(it=>`
+      <div class="pend-card-row">
+        <span class="pend-card-row-name">${it.nombre}${it._fijo||it.quien_pago?'':''}</span>
+        <span class="pend-card-row-amt" style="color:${color}">${fmt(it._amt)}</span>
+      </div>`).join('');
+    const extraMsg = items.length > 4 ? `<div style="font-size:11px;color:var(--muted);margin-top:4px">+${items.length-4} más</div>` : '';
+    return `<div class="pend-card">
+      <div class="pend-card-label">${label}</div>
+      <div class="pend-card-amount" style="color:${color}">${fmt(amount)}</div>
+      <div class="pend-card-sub">${amount>0?`${items.length} concepto${items.length!==1?'s':''} pendiente${items.length!==1?'s':''}`:label.includes('Total')?'Sin pendientes este mes':'No debe nada este mes'}</div>
+      ${amount>0?`<div class="pend-card-rows">${rowsHtml}${extraMsg}</div>`:''}
+    </div>`;
+  }
+
+  const itemsK = [
+    ...pendK_gastos.map(g=>({nombre:g.nombre, _amt:g.karla-(g.abonado||0)})),
+    ...pendK_fijos.map(f=>({nombre:f.nombre+' (fijo)', _amt:f.karla}))
+  ];
+  const itemsA = [
+    ...pendA_gastos.map(g=>({nombre:g.nombre, _amt:g.andre-(g.abonado||0)})),
+    ...pendA_fijos.map(f=>({nombre:f.nombre+' (fijo)', _amt:f.andre}))
+  ];
+  const itemsTotal = [
+    ...itemsK.map(i=>({...i, _label:'K'})),
+    ...itemsA.map(i=>({...i, _label:'A'}))
+  ];
+
+  const cardK     = makePendCard('💗 Karla debe este mes',  pendK_total, 'var(--karla)', itemsK, 0);
+  const cardA     = makePendCard('💙 Andre debe este mes',  pendA_total, 'var(--andre)', itemsA, 1);
+  const cardTotal = makePendCard('📊 Total pendiente',      pendTotal,   'var(--shared)', itemsTotal.map(i=>({nombre:i.nombre, _amt:i._amt})), 2);
+
+  const pendMesHtml = `
+    <div class="pend-carousel-wrap">
+      <div class="pend-carousel-title">Pendiente de liquidar — ${formatMonth(mes)}</div>
+      <div class="pend-carousel" id="pend-carousel" onscroll="updatePendDots()">
+        ${cardK}${cardA}${cardTotal}
+      </div>
+      <div class="pend-dots">
+        <div class="pend-dot active" id="pdot-0"></div>
+        <div class="pend-dot" id="pdot-1"></div>
+        <div class="pend-dot" id="pdot-2"></div>
+      </div>
+    </div>`;
+
+  document.getElementById('pendientes-mes-section').innerHTML = pendMesHtml;
+}
+
+function updatePendDots() {
+  const el = document.getElementById('pend-carousel');
+  if(!el) return;
+  const idx = Math.round(el.scrollLeft / el.offsetWidth);
+  document.querySelectorAll('.pend-dot').forEach((d,i)=>d.classList.toggle('active',i===idx));
 }
 
 function updateBalanceDots() {
