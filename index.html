@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finanzas · Karla & Andre</title>
+<style>
+  :root {
+    --bg: #0f0f13;
+    --surface: #1a1a22;
+    --card: #22222e;
+    --border: #2e2e3e;
+    --karla: #f472b6;
+    --andre: #60a5fa;
+    --shared: #a78bfa;
+    --text: #e8e8f0;
+    --muted: #7070a0;
+    --green: #34d399;
+    --red: #f87171;
+    --yellow: #fbbf24;
+    --radius: 12px;
+    --font: 'Segoe UI', system-ui, sans-serif;
+    /* categorías */
+    --cat-despensa: #34d399;
+    --cat-salidas: #fb923c;
+    --cat-entretenimiento: #c084fc;
+    --cat-fijos: #60a5fa;
+    --cat-msi: #fbbf24;
+    --cat-otro: #94a3b8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); min-height: 100vh; }
+
+  nav { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 16px; display: flex; align-items: center; gap: 0; position: sticky; top: 0; z-index: 100; overflow-x: auto; }
+  nav h1 { font-size: 14px; font-weight: 700; color: var(--shared); white-space: nowrap; padding-right: 16px; border-right: 1px solid var(--border); margin-right: 8px; padding-top: 14px; padding-bottom: 14px; }
+  nav button { background: none; border: none; color: var(--muted); font-size: 13px; padding: 14px 12px; cursor: pointer; white-space: nowrap; border-bottom: 2px solid transparent; transition: all .2s; }
+  nav button.active { color: var(--text); border-bottom-color: var(--shared); }
+  nav button:hover { color: var(--text); }
+
+  main { max-width: 900px; margin: 0 auto; padding: 20px 16px 80px; }
+  .page { display: none; }
+  .page.active { display: block; }
+
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; margin-bottom: 14px; }
+  .card-title { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; }
+
+  .summary-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+  @media(max-width:500px) { .summary-grid { grid-template-columns: 1fr 1fr; } }
+  .stat { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+  .stat-label { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+  .stat-val { font-size: 22px; font-weight: 800; }
+
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 600; }
+  .pill.karla { background: #f472b620; color: var(--karla); }
+  .pill.andre { background: #60a5fa20; color: var(--andre); }
+  .pill.ambos { background: #a78bfa20; color: var(--shared); }
+
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  @media(max-width:500px) { .form-grid { grid-template-columns: 1fr; } }
+  .form-grid.cols3 { grid-template-columns: 1fr 1fr 1fr; }
+  @media(max-width:500px) { .form-grid.cols3 { grid-template-columns: 1fr 1fr; } }
+  label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px; }
+  input, select { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; color: var(--text); font-size: 14px; outline: none; transition: border-color .2s; }
+  input:focus, select:focus { border-color: var(--shared); }
+  select option { background: var(--surface); }
+  .form-group { display: flex; flex-direction: column; }
+  .form-group.span2 { grid-column: span 2; }
+  @media(max-width:500px) { .form-group.span2 { grid-column: span 1; } }
+
+  .btn { padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-size: 14px; font-weight: 600; transition: opacity .15s; }
+  .btn:hover { opacity: .85; }
+  .btn-primary { background: var(--shared); color: #fff; }
+  .btn-danger { background: #f8717120; color: var(--red); border: 1px solid #f8717140; padding: 6px 12px; font-size: 12px; }
+  .btn-sm { padding: 6px 14px; font-size: 12px; }
+  .add-form { margin-bottom: 20px; }
+  .form-actions { margin-top: 14px; display: flex; gap: 8px; align-items: center; }
+
+  .entry { display: flex; align-items: center; gap: 10px; padding: 11px 14px; background: var(--surface); border-radius: 8px; margin-bottom: 8px; border: 1px solid var(--border); flex-wrap: wrap; }
+  .entry-main { flex: 1; min-width: 0; }
+  .entry-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .entry-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .entry-amount { font-weight: 700; font-size: 15px; white-space: nowrap; }
+  .entry-split { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+  .split-tag { font-size: 11px; padding: 2px 7px; border-radius: 99px; font-weight: 600; }
+  .split-tag.karla { background: #f472b615; color: var(--karla); }
+  .split-tag.andre { background: #60a5fa15; color: var(--andre); }
+
+  .msi-badge { background: #fbbf2420; color: var(--yellow); font-size: 11px; padding: 2px 8px; border-radius: 99px; font-weight: 700; }
+
+  .month-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+  .month-bar select { width: auto; }
+  .month-bar label { margin: 0; color: var(--text); font-size: 14px; }
+
+  .empty { text-align: center; color: var(--muted); padding: 40px 20px; font-size: 14px; }
+
+  .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .section-header h2 { font-size: 15px; font-weight: 700; }
+
+  .add-toggle { background: var(--surface); border: 1px dashed var(--border); border-radius: var(--radius); padding: 12px; text-align: center; cursor: pointer; color: var(--muted); font-size: 13px; margin-bottom: 16px; transition: all .2s; }
+  .add-toggle:hover { border-color: var(--shared); color: var(--shared); }
+
+  .breakdown { display: flex; flex-direction: column; gap: 0; }
+  .breakdown-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .breakdown-row:last-child { border: none; }
+  .breakdown-row .amount { font-weight: 700; }
+  .total-row { display: flex; justify-content: space-between; font-weight: 800; font-size: 15px; padding: 10px 0 0; }
+
+  /* CATEGORÍA BADGE */
+  .cat-badge { font-size: 10px; padding: 2px 7px; border-radius: 99px; font-weight: 700; white-space: nowrap; }
+  .cat-despensa   { background: #34d39920; color: var(--cat-despensa); }
+  .cat-salidas    { background: #fb923c20; color: var(--cat-salidas); }
+  .cat-entretenimiento { background: #c084fc20; color: var(--cat-entretenimiento); }
+  .cat-fijos      { background: #60a5fa20; color: var(--cat-fijos); }
+  .cat-msi        { background: #fbbf2420; color: var(--cat-msi); }
+  .cat-otro       { background: #94a3b820; color: var(--cat-otro); }
+
+  /* HISTORIAL */
+  .hist-month { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 14px; overflow: hidden; }
+  .hist-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; cursor: pointer; user-select: none; transition: background .15s; }
+  .hist-header:hover { background: var(--surface); }
+  .hist-header-left { display: flex; flex-direction: column; gap: 4px; }
+  .hist-month-name { font-size: 15px; font-weight: 700; }
+  .hist-meta { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .hist-header-right { display: flex; align-items: center; gap: 10px; }
+  .hist-total { font-size: 18px; font-weight: 800; color: var(--shared); }
+  .hist-chevron { color: var(--muted); font-size: 11px; transition: transform .2s; }
+  .hist-chevron.open { transform: rotate(180deg); }
+
+  /* barras de categorías */
+  .hist-bars { padding: 2px 18px 12px; display: flex; flex-direction: column; gap: 7px; }
+  .hbar-row { display: flex; align-items: center; gap: 8px; }
+  .hbar-icon { font-size: 13px; width: 20px; text-align: center; flex-shrink: 0; }
+  .hbar-track { flex: 1; background: var(--border); border-radius: 99px; height: 7px; overflow: hidden; }
+  .hbar-fill { height: 100%; border-radius: 99px; transition: width .5s cubic-bezier(.4,0,.2,1); }
+  .hbar-amt { font-size: 12px; font-weight: 600; width: 72px; text-align: right; flex-shrink: 0; }
+
+  /* detalle expandido */
+  .hist-detail { display: none; padding: 0 18px 16px; }
+  .hist-detail.open { display: block; }
+  .hist-detail-section { margin-bottom: 14px; }
+  .hist-detail-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin-bottom: 7px; display: flex; align-items: center; gap: 6px; }
+  .hist-item { display: flex; justify-content: space-between; align-items: center; font-size: 13px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+  .hist-item:last-child { border: none; }
+  .hist-item-name { color: var(--text); }
+  .hist-item-date { color: var(--muted); font-size: 11px; }
+  .hist-item-amt { font-weight: 600; }
+
+  .trend-badge { font-size: 10px; padding: 2px 7px; border-radius: 99px; font-weight: 700; }
+  .trend-up   { background: #f8717120; color: var(--red); }
+  .trend-down { background: #34d39920; color: var(--green); }
+  .trend-eq   { background: #7070a020; color: var(--muted); }
+
+  .hist-empty { text-align: center; color: var(--muted); padding: 60px 20px; font-size: 14px; line-height: 1.6; }
+  .hist-top-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+  @media(max-width:500px) { .hist-top-stats { grid-template-columns: 1fr 1fr; } }
+</style>
+</head>
+<body>
+
+<nav>
+  <h1>💰 K & A</h1>
+  <button class="active" onclick="showPage('resumen',event)">Resumen</button>
+  <button onclick="showPage('gastos',event)">Gastos</button>
+  <button onclick="showPage('fijos',event)">Fijos</button>
+  <button onclick="showPage('compras',event)">MSI</button>
+  <button onclick="showPage('historial',event)">Historial</button>
+</nav>
+
+<main>
+
+  <!-- RESUMEN -->
+  <div id="page-resumen" class="page active">
+    <div class="month-bar">
+      <label>Mes:</label>
+      <select id="resumen-mes" onchange="renderResumen()"></select>
+    </div>
+    <div class="summary-grid" id="summary-stats"></div>
+    <div class="card">
+      <div class="card-title">Desglose por categoría</div>
+      <div id="resumen-breakdown"></div>
+    </div>
+  </div>
+
+  <!-- GASTOS (salidas + despensa + entretenimiento + otro) -->
+  <div id="page-gastos" class="page">
+    <div class="add-toggle" onclick="toggleForm('gasto')">＋ Registrar gasto</div>
+    <div class="card add-form" id="form-gasto" style="display:none">
+      <div class="card-title">Nuevo gasto</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Descripción</label>
+          <input id="g-nombre" placeholder="ej. Walmart, cena, Netflix…">
+        </div>
+        <div class="form-group">
+          <label>Categoría</label>
+          <select id="g-cat">
+            <option value="despensa">🛒 Despensa</option>
+            <option value="salidas">🍽 Salidas</option>
+            <option value="entretenimiento">🎬 Entretenimiento</option>
+            <option value="otro">📌 Otro</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Fecha</label>
+          <input id="g-fecha" type="date">
+        </div>
+        <div class="form-group">
+          <label>Total $</label>
+          <input id="g-total" type="number" placeholder="0.00" oninput="calcGastoSplit()">
+        </div>
+        <div class="form-group">
+          <label>¿Cómo se divide?</label>
+          <select id="g-split" onchange="calcGastoSplit()">
+            <option value="50/50">50 / 50</option>
+            <option value="karla">Lo paga Karla</option>
+            <option value="andre">Lo paga Andre</option>
+            <option value="custom">Personalizado</option>
+          </select>
+        </div>
+        <div class="form-group" id="g-k-wrap" style="display:none">
+          <label>Parte Karla $</label>
+          <input id="g-karla" type="number" placeholder="0.00" oninput="syncGastoAndre()">
+        </div>
+        <div class="form-group" id="g-a-wrap" style="display:none">
+          <label>Parte Andre $</label>
+          <input id="g-andre" type="number" placeholder="0.00" oninput="syncGastoKarla()">
+        </div>
+        <div class="form-group span2">
+          <label>Notas (opcional)</label>
+          <input id="g-notas" placeholder="opcional">
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" onclick="addGasto()">Guardar</button>
+        <button class="btn btn-sm" style="background:var(--surface);border:1px solid var(--border)" onclick="toggleForm('gasto')">Cancelar</button>
+      </div>
+    </div>
+    <div class="month-bar">
+      <label>Filtrar mes:</label>
+      <select id="gastos-mes" onchange="renderGastos()"></select>
+    </div>
+    <div id="list-gastos"></div>
+  </div>
+
+  <!-- GASTOS FIJOS -->
+  <div id="page-fijos" class="page">
+    <div class="add-toggle" onclick="toggleForm('fijo')">＋ Agregar gasto fijo</div>
+    <div class="card add-form" id="form-fijo" style="display:none">
+      <div class="card-title">Nuevo gasto fijo</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Servicio / Concepto</label>
+          <input id="fijo-nombre" placeholder="ej. renta, gym, seguro…">
+        </div>
+        <div class="form-group">
+          <label>Categoría</label>
+          <select id="fijo-cat">
+            <option value="entretenimiento">🎬 Entretenimiento (streaming)</option>
+            <option value="fijos">💳 Fijo general</option>
+            <option value="otro">📌 Otro</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Monto total $</label>
+          <input id="fijo-monto" type="number" placeholder="0.00">
+        </div>
+        <div class="form-group">
+          <label>¿Quién paga?</label>
+          <select id="fijo-pagador">
+            <option value="karla">Karla</option>
+            <option value="andre">Andre</option>
+            <option value="ambos">Ambos (50/50)</option>
+            <option value="custom">Personalizado</option>
+          </select>
+        </div>
+        <div class="form-group" id="fijo-karla-wrap" style="display:none">
+          <label>Parte Karla $</label>
+          <input id="fijo-karla" type="number" placeholder="0.00" oninput="calcAndre()">
+        </div>
+        <div class="form-group" id="fijo-andre-wrap" style="display:none">
+          <label>Parte Andre $</label>
+          <input id="fijo-andre" type="number" placeholder="0.00" oninput="calcKarla()">
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" onclick="addFijo()">Guardar</button>
+        <button class="btn btn-sm" style="background:var(--surface);border:1px solid var(--border)" onclick="toggleForm('fijo')">Cancelar</button>
+      </div>
+    </div>
+    <div id="list-fijos"></div>
+  </div>
+
+  <!-- COMPRAS MSI -->
+  <div id="page-compras" class="page">
+    <div class="add-toggle" onclick="toggleForm('compra')">＋ Agregar compra a meses</div>
+    <div class="card add-form" id="form-compra" style="display:none">
+      <div class="card-title">Nueva compra a meses</div>
+      <div class="form-grid cols3">
+        <div class="form-group span2">
+          <label>Artículo / Concepto</label>
+          <input id="comp-nombre" placeholder="ej. iPhone, laptop…">
+        </div>
+        <div class="form-group">
+          <label>Fecha de compra</label>
+          <input id="comp-fecha" type="date">
+        </div>
+        <div class="form-group">
+          <label>Precio total $</label>
+          <input id="comp-total" type="number" placeholder="0.00" oninput="calcMensualidad()">
+        </div>
+        <div class="form-group">
+          <label>Meses (MSI)</label>
+          <select id="comp-meses" onchange="calcMensualidad()">
+            <option value="3">3 meses</option>
+            <option value="6">6 meses</option>
+            <option value="9">9 meses</option>
+            <option value="12" selected>12 meses</option>
+            <option value="18">18 meses</option>
+            <option value="24">24 meses</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Mensualidad aprox.</label>
+          <input id="comp-mens" placeholder="—" readonly style="color:var(--yellow)">
+        </div>
+        <div class="form-group">
+          <label>Tarjeta usada</label>
+          <input id="comp-tarjeta" placeholder="ej. BBVA Karla">
+        </div>
+        <div class="form-group">
+          <label>¿De quién?</label>
+          <select id="comp-quien">
+            <option value="karla">Karla</option>
+            <option value="andre">Andre</option>
+            <option value="ambos">Compartido</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>¿Se divide?</label>
+          <select id="comp-split">
+            <option value="no">No (paga uno solo)</option>
+            <option value="50/50">Sí, 50/50 mensual</option>
+          </select>
+        </div>
+        <div class="form-group span2">
+          <label>Notas</label>
+          <input id="comp-notas" placeholder="opcional">
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" onclick="addCompra()">Guardar</button>
+        <button class="btn btn-sm" style="background:var(--surface);border:1px solid var(--border)" onclick="toggleForm('compra')">Cancelar</button>
+      </div>
+    </div>
+    <div id="list-compras"></div>
+  </div>
+
+  <!-- HISTORIAL -->
+  <div id="page-historial" class="page">
+    <div id="historial-content"></div>
+  </div>
+
+</main>
+
+<script>
+// ─── CATEGORÍAS ───────────────────────────────────────────────
+const CATS = {
+  despensa:       { label: 'Despensa',        icon: '🛒', color: 'var(--cat-despensa)' },
+  salidas:        { label: 'Salidas',          icon: '🍽', color: 'var(--cat-salidas)' },
+  entretenimiento:{ label: 'Entretenimiento', icon: '🎬', color: 'var(--cat-entretenimiento)' },
+  fijos:          { label: 'Fijos',            icon: '💳', color: 'var(--cat-fijos)' },
+  msi:            { label: 'Compras MSI',      icon: '📦', color: 'var(--cat-msi)' },
+  otro:           { label: 'Otro',             icon: '📌', color: 'var(--cat-otro)' },
+};
+
+// ─── STATE ────────────────────────────────────────────────────
+let state = { fijos: [], gastos: [], compras: [] };
+function save() { localStorage.setItem('finanzas-ka-v2', JSON.stringify(state)); }
+function load() {
+  try { const d = localStorage.getItem('finanzas-ka-v2'); if(d) state = JSON.parse(d); } catch(e){}
+  // migrate old data
+  try {
+    const old = localStorage.getItem('finanzas-ka');
+    if(old && !state.gastos.length) {
+      const o = JSON.parse(old);
+      if(o.salidas) o.salidas.forEach(s => state.gastos.push({...s, cat: 'salidas'}));
+      if(o.fijos)   state.fijos = o.fijos.map(f => ({...f, cat: f.cat||'fijos'}));
+      if(o.compras) state.compras = o.compras;
+      save();
+    }
+  } catch(e){}
+}
+
+// ─── NAV ──────────────────────────────────────────────────────
+function showPage(id, e) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  if(e && e.target) e.target.classList.add('active');
+  if(id==='resumen')   renderResumen();
+  if(id==='gastos')    renderGastos();
+  if(id==='fijos')     renderFijos();
+  if(id==='compras')   renderCompras();
+  if(id==='historial') renderHistorial();
+}
+
+function toggleForm(type) {
+  const f = document.getElementById('form-'+type);
+  const open = f.style.display !== 'none';
+  f.style.display = open ? 'none' : 'block';
+  if(!open) {
+    const today = new Date().toISOString().split('T')[0];
+    if(type==='gasto')  { document.getElementById('g-fecha').value = today; calcGastoSplit(); }
+    if(type==='compra') { document.getElementById('comp-fecha').value = today; }
+  }
+}
+
+// ─── HELPERS ──────────────────────────────────────────────────
+function fmt(n) { return '$'+(+n||0).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+
+function formatMonth(ym) {
+  const [y,m] = ym.split('-');
+  return ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][+m-1]+' '+y;
+}
+
+function catBadge(cat) {
+  const c = CATS[cat] || CATS.otro;
+  return `<span class="cat-badge cat-${cat}">${c.icon} ${c.label}</span>`;
+}
+
+function allMonths() {
+  const s = new Set();
+  const now = new Date();
+  s.add(now.toISOString().slice(0,7));
+  state.gastos.forEach(g=>s.add(g.fecha.slice(0,7)));
+  return [...s].sort().reverse();
+}
+
+function populateMonthSelect(elId) {
+  const sel = document.getElementById(elId);
+  if(!sel) return;
+  const cur = sel.value;
+  const months = allMonths();
+  sel.innerHTML = months.map(m=>`<option value="${m}">${formatMonth(m)}</option>`).join('');
+  if(months.includes(cur)) sel.value = cur;
+}
+
+// ─── GASTOS FIJOS ─────────────────────────────────────────────
+document.getElementById('fijo-pagador').addEventListener('change', function() {
+  const v = this.value;
+  document.getElementById('fijo-karla-wrap').style.display = v==='custom'?'block':'none';
+  document.getElementById('fijo-andre-wrap').style.display = v==='custom'?'block':'none';
+});
+function calcAndre() {
+  const t=+document.getElementById('fijo-monto').value||0;
+  document.getElementById('fijo-andre').value=Math.max(0,t-(+document.getElementById('fijo-karla').value||0)).toFixed(2);
+}
+function calcKarla() {
+  const t=+document.getElementById('fijo-monto').value||0;
+  document.getElementById('fijo-karla').value=Math.max(0,t-(+document.getElementById('fijo-andre').value||0)).toFixed(2);
+}
+
+function addFijo() {
+  const nombre=document.getElementById('fijo-nombre').value.trim();
+  const monto=+document.getElementById('fijo-monto').value||0;
+  const pagador=document.getElementById('fijo-pagador').value;
+  const cat=document.getElementById('fijo-cat').value;
+  if(!nombre||!monto) return alert('Llena nombre y monto.');
+  let karla=0,andre=0;
+  if(pagador==='karla')  { karla=monto; }
+  else if(pagador==='andre') { andre=monto; }
+  else if(pagador==='ambos') { karla=monto/2; andre=monto/2; }
+  else { karla=+document.getElementById('fijo-karla').value||0; andre=+document.getElementById('fijo-andre').value||0; }
+  state.fijos.push({id:Date.now(),nombre,monto,pagador,karla,andre,cat});
+  save(); renderFijos();
+  document.getElementById('fijo-nombre').value=''; document.getElementById('fijo-monto').value='';
+  document.getElementById('fijo-pagador').value='karla';
+  document.getElementById('fijo-karla-wrap').style.display='none';
+  document.getElementById('fijo-andre-wrap').style.display='none';
+  toggleForm('fijo');
+}
+
+function deleteFijo(id) {
+  if(!confirm('¿Eliminar este gasto fijo?')) return;
+  state.fijos=state.fijos.filter(f=>f.id!==id); save(); renderFijos();
+}
+
+function renderFijos() {
+  const el=document.getElementById('list-fijos');
+  if(!state.fijos.length) { el.innerHTML='<div class="empty">Sin gastos fijos. Agrega servicios como Netflix, renta, gym…</div>'; return; }
+  const totalK=state.fijos.reduce((s,f)=>s+f.karla,0);
+  const totalA=state.fijos.reduce((s,f)=>s+f.andre,0);
+  // group by cat
+  const byCat={};
+  state.fijos.forEach(f=>{ if(!byCat[f.cat||'fijos']) byCat[f.cat||'fijos']=[]; byCat[f.cat||'fijos'].push(f); });
+  let html=`<div class="card" style="margin-bottom:14px"><div class="breakdown">
+    <div class="breakdown-row"><span>Karla mensual</span><span class="amount" style="color:var(--karla)">${fmt(totalK)}</span></div>
+    <div class="breakdown-row"><span>Andre mensual</span><span class="amount" style="color:var(--andre)">${fmt(totalA)}</span></div>
+    <div class="total-row"><span>Total mensual</span><span style="color:var(--shared)">${fmt(totalK+totalA)}</span></div>
+  </div></div>`;
+  Object.entries(byCat).forEach(([cat,items])=>{
+    const c=CATS[cat]||CATS.otro;
+    html+=`<div class="section-header" style="margin-top:16px"><h2>${c.icon} ${c.label}</h2></div>`;
+    items.forEach(f=>{
+      html+=`<div class="entry">
+        <div class="entry-main">
+          <div class="entry-name">${f.nombre}</div>
+          <div class="entry-split">
+            ${f.karla>0?`<span class="split-tag karla">Karla ${fmt(f.karla)}</span>`:''}
+            ${f.andre>0?`<span class="split-tag andre">Andre ${fmt(f.andre)}</span>`:''}
+          </div>
+        </div>
+        <div class="entry-amount" style="color:${c.color}">${fmt(f.monto)}</div>
+        <button class="btn btn-danger" onclick="deleteFijo(${f.id})">✕</button>
+      </div>`;
+    });
+  });
+  el.innerHTML=html;
+}
+
+// ─── GASTOS VARIABLES ─────────────────────────────────────────
+function calcGastoSplit() {
+  const t=+document.getElementById('g-total').value||0;
+  const sp=document.getElementById('g-split').value;
+  document.getElementById('g-k-wrap').style.display=sp==='custom'?'block':'none';
+  document.getElementById('g-a-wrap').style.display=sp==='custom'?'block':'none';
+  if(sp==='50/50') { document.getElementById('g-karla').value=(t/2).toFixed(2); document.getElementById('g-andre').value=(t/2).toFixed(2); }
+  if(sp==='karla') { document.getElementById('g-karla').value=t; document.getElementById('g-andre').value=0; }
+  if(sp==='andre') { document.getElementById('g-karla').value=0; document.getElementById('g-andre').value=t; }
+}
+function syncGastoAndre() { const t=+document.getElementById('g-total').value||0; document.getElementById('g-andre').value=Math.max(0,t-(+document.getElementById('g-karla').value||0)).toFixed(2); }
+function syncGastoKarla() { const t=+document.getElementById('g-total').value||0; document.getElementById('g-karla').value=Math.max(0,t-(+document.getElementById('g-andre').value||0)).toFixed(2); }
+
+function addGasto() {
+  const nombre=document.getElementById('g-nombre').value.trim();
+  const fecha=document.getElementById('g-fecha').value;
+  const total=+document.getElementById('g-total').value||0;
+  const cat=document.getElementById('g-cat').value;
+  const notas=document.getElementById('g-notas').value.trim();
+  if(!nombre||!fecha||!total) return alert('Llena descripción, fecha y monto.');
+  const karla=+document.getElementById('g-karla').value||0;
+  const andre=+document.getElementById('g-andre').value||0;
+  state.gastos.push({id:Date.now(),nombre,fecha,total,karla,andre,cat,notas});
+  save(); renderGastos(); populateMonthSelect('resumen-mes'); populateMonthSelect('gastos-mes');
+  document.getElementById('g-nombre').value=''; document.getElementById('g-total').value=''; document.getElementById('g-notas').value='';
+  toggleForm('gasto');
+}
+
+function deleteGasto(id) {
+  if(!confirm('¿Eliminar este gasto?')) return;
+  state.gastos=state.gastos.filter(g=>g.id!==id); save(); renderGastos();
+}
+
+function renderGastos() {
+  populateMonthSelect('gastos-mes');
+  const mes=document.getElementById('gastos-mes').value;
+  const items=state.gastos.filter(g=>g.fecha.startsWith(mes)).sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  const el=document.getElementById('list-gastos');
+  if(!items.length) { el.innerHTML='<div class="empty">Sin gastos en este mes.</div>'; return; }
+
+  // group by category
+  const byCat={};
+  items.forEach(g=>{ if(!byCat[g.cat]) byCat[g.cat]=[]; byCat[g.cat].push(g); });
+
+  const totalK=items.reduce((s,g)=>s+g.karla,0);
+  const totalA=items.reduce((s,g)=>s+g.andre,0);
+
+  let html=`<div class="card" style="margin-bottom:14px"><div class="breakdown">
+    <div class="breakdown-row"><span>Karla este mes</span><span class="amount" style="color:var(--karla)">${fmt(totalK)}</span></div>
+    <div class="breakdown-row"><span>Andre este mes</span><span class="amount" style="color:var(--andre)">${fmt(totalA)}</span></div>
+    <div class="total-row"><span>Total</span><span style="color:var(--shared)">${fmt(totalK+totalA)}</span></div>
+  </div></div>`;
+
+  Object.entries(byCat).forEach(([cat,gs])=>{
+    const c=CATS[cat]||CATS.otro;
+    const catTotal=gs.reduce((s,g)=>s+g.total,0);
+    html+=`<div class="section-header" style="margin-top:16px">
+      <h2>${c.icon} ${c.label}</h2>
+      <span style="font-weight:700;color:${c.color}">${fmt(catTotal)}</span>
+    </div>`;
+    gs.forEach(g=>{
+      html+=`<div class="entry">
+        <div class="entry-main">
+          <div class="entry-name">${g.nombre}</div>
+          <div class="entry-sub">${g.fecha}${g.notas?' · '+g.notas:''}</div>
+          <div class="entry-split">
+            ${g.karla>0?`<span class="split-tag karla">K ${fmt(g.karla)}</span>`:''}
+            ${g.andre>0?`<span class="split-tag andre">A ${fmt(g.andre)}</span>`:''}
+          </div>
+        </div>
+        <div class="entry-amount" style="color:${c.color}">${fmt(g.total)}</div>
+        <button class="btn btn-danger" onclick="deleteGasto(${g.id})">✕</button>
+      </div>`;
+    });
+  });
+
+  el.innerHTML=html;
+}
+
+// ─── COMPRAS MSI ──────────────────────────────────────────────
+function calcMensualidad() {
+  const t=+document.getElementById('comp-total').value||0;
+  const m=+document.getElementById('comp-meses').value||12;
+  document.getElementById('comp-mens').value=t>0?fmt(t/m)+' / mes':'—';
+}
+
+function addCompra() {
+  const nombre=document.getElementById('comp-nombre').value.trim();
+  const fecha=document.getElementById('comp-fecha').value;
+  const total=+document.getElementById('comp-total').value||0;
+  const meses=+document.getElementById('comp-meses').value;
+  const tarjeta=document.getElementById('comp-tarjeta').value.trim();
+  const quien=document.getElementById('comp-quien').value;
+  const split=document.getElementById('comp-split').value;
+  const notas=document.getElementById('comp-notas').value.trim();
+  if(!nombre||!fecha||!total) return alert('Llena nombre, fecha y precio.');
+  const mensualidad=total/meses;
+  const karla=quien==='karla'?(split==='50/50'?mensualidad/2:mensualidad):quien==='ambos'?mensualidad/2:0;
+  const andre=quien==='andre'?(split==='50/50'?mensualidad/2:mensualidad):quien==='ambos'?mensualidad/2:0;
+  const end=new Date(fecha); end.setMonth(end.getMonth()+meses);
+  state.compras.push({id:Date.now(),nombre,fecha,total,meses,mensualidad,tarjeta,quien,split,notas,karla,andre,end:end.toISOString().slice(0,7)});
+  save(); renderCompras();
+  document.getElementById('comp-nombre').value=''; document.getElementById('comp-total').value='';
+  document.getElementById('comp-tarjeta').value=''; document.getElementById('comp-notas').value='';
+  document.getElementById('comp-mens').value='—';
+  toggleForm('compra');
+}
+
+function deleteCompra(id) {
+  if(!confirm('¿Eliminar esta compra?')) return;
+  state.compras=state.compras.filter(c=>c.id!==id); save(); renderCompras();
+}
+
+function renderCompras() {
+  const el=document.getElementById('list-compras');
+  if(!state.compras.length) { el.innerHTML='<div class="empty">Sin compras a meses registradas.</div>'; return; }
+  const now=new Date().toISOString().slice(0,7);
+  const active=state.compras.filter(c=>c.end>=now);
+  const done=state.compras.filter(c=>c.end<now);
+  function rItem(c) {
+    const ia=c.end>=now;
+    return `<div class="entry" style="${ia?'':'opacity:.5'}">
+      <div class="entry-main">
+        <div class="entry-name">${c.nombre} <span class="msi-badge">${c.meses}MSI</span></div>
+        <div class="entry-sub">${c.fecha} → ${c.end}${c.tarjeta?' · '+c.tarjeta:''}</div>
+        <div class="entry-split">
+          <span class="pill ${c.quien==='ambos'?'ambos':c.quien}">${c.quien==='ambos'?'Compartido':c.quien==='karla'?'Karla':'Andre'}</span>
+          ${c.karla>0?`<span class="split-tag karla">K ${fmt(c.karla)}/mes</span>`:''}
+          ${c.andre>0?`<span class="split-tag andre">A ${fmt(c.andre)}/mes</span>`:''}
+        </div>
+      </div>
+      <div style="text-align:right">
+        <div class="entry-amount" style="color:var(--cat-msi)">${fmt(c.mensualidad)}<span style="font-size:11px;color:var(--muted)">/mes</span></div>
+        <div style="font-size:11px;color:var(--muted)">${fmt(c.total)} total</div>
+      </div>
+      <button class="btn btn-danger" onclick="deleteCompra(${c.id})">✕</button>
+    </div>`;
+  }
+  el.innerHTML=`
+    ${active.length?`<div class="section-header"><h2>Activas (${active.length})</h2></div>${active.map(rItem).join('')}`:''}
+    ${done.length?`<div class="section-header" style="margin-top:20px"><h2 style="color:var(--muted)">Liquidadas</h2></div>${done.map(rItem).join('')}`:''}`;
+}
+
+// ─── RESUMEN ──────────────────────────────────────────────────
+function getMonthCats(ym) {
+  // gastos variables del mes por categoría
+  const items=state.gastos.filter(g=>g.fecha.startsWith(ym));
+  const byCat={};
+  items.forEach(g=>{
+    if(!byCat[g.cat]) byCat[g.cat]={total:0,karla:0,andre:0,items:[]};
+    byCat[g.cat].total+=g.total; byCat[g.cat].karla+=g.karla; byCat[g.cat].andre+=g.andre;
+    byCat[g.cat].items.push(g);
+  });
+  // fijos (siempre)
+  if(state.fijos.length) {
+    const fijosByCat={};
+    state.fijos.forEach(f=>{
+      const k=f.cat||'fijos';
+      if(!fijosByCat[k]) fijosByCat[k]={total:0,karla:0,andre:0,items:[]};
+      fijosByCat[k].total+=f.monto; fijosByCat[k].karla+=f.karla; fijosByCat[k].andre+=f.andre;
+      fijosByCat[k].items.push({...f,_fijo:true});
+    });
+    Object.entries(fijosByCat).forEach(([cat,d])=>{
+      if(!byCat[cat]) byCat[cat]={total:0,karla:0,andre:0,items:[]};
+      byCat[cat].total+=d.total; byCat[cat].karla+=d.karla; byCat[cat].andre+=d.andre;
+      byCat[cat].items.push(...d.items);
+    });
+  }
+  // MSI activas ese mes
+  const msiActivas=state.compras.filter(c=>c.fecha.slice(0,7)<=ym && c.end>=ym);
+  if(msiActivas.length) {
+    if(!byCat.msi) byCat.msi={total:0,karla:0,andre:0,items:[]};
+    msiActivas.forEach(c=>{
+      byCat.msi.total+=c.mensualidad; byCat.msi.karla+=c.karla; byCat.msi.andre+=c.andre;
+      byCat.msi.items.push({...c,_msi:true});
+    });
+  }
+  return byCat;
+}
+
+function renderResumen() {
+  populateMonthSelect('resumen-mes');
+  const mes=document.getElementById('resumen-mes').value;
+  const byCat=getMonthCats(mes);
+  const total=Object.values(byCat).reduce((s,c)=>s+c.total,0);
+  const totalK=Object.values(byCat).reduce((s,c)=>s+c.karla,0);
+  const totalA=Object.values(byCat).reduce((s,c)=>s+c.andre,0);
+
+  document.getElementById('summary-stats').innerHTML=`
+    <div class="stat"><div class="stat-label">Karla</div><div class="stat-val" style="color:var(--karla)">${fmt(totalK)}</div></div>
+    <div class="stat"><div class="stat-label">Andre</div><div class="stat-val" style="color:var(--andre)">${fmt(totalA)}</div></div>
+    <div class="stat"><div class="stat-label">Total</div><div class="stat-val" style="color:var(--shared)">${fmt(total)}</div></div>`;
+
+  if(!Object.keys(byCat).length) {
+    document.getElementById('resumen-breakdown').innerHTML='<div class="empty" style="padding:20px">Sin datos este mes.</div>';
+    return;
+  }
+
+  const sorted=Object.entries(byCat).sort((a,b)=>b[1].total-a[1].total);
+  let rows='';
+  sorted.forEach(([cat,d])=>{
+    const c=CATS[cat]||CATS.otro;
+    const pct=total>0?Math.round(d.total/total*100):0;
+    rows+=`<div class="breakdown-row">
+      <span>${c.icon} ${c.label}</span>
+      <span style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:11px;color:var(--muted)">${pct}%</span>
+        <span class="amount" style="color:${c.color}">${fmt(d.total)}</span>
+      </span>
+    </div>`;
+  });
+  document.getElementById('resumen-breakdown').innerHTML=`<div class="breakdown">${rows}<div class="total-row"><span>Total</span><span style="color:var(--shared)">${fmt(total)}</span></div></div>`;
+}
+
+// ─── HISTORIAL ────────────────────────────────────────────────
+function allHistMonths() {
+  const s=new Set();
+  const now=new Date();
+  for(let i=0;i<12;i++) {
+    const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+    s.add(d.toISOString().slice(0,7));
+  }
+  state.gastos.forEach(g=>s.add(g.fecha.slice(0,7)));
+  state.compras.forEach(c=>{s.add(c.fecha.slice(0,7));s.add(c.end);});
+  return [...s].sort().reverse();
+}
+
+function renderHistorial() {
+  const el=document.getElementById('historial-content');
+  const months=allHistMonths();
+
+  const allData=months.map(ym=>{
+    const byCat=getMonthCats(ym);
+    const total=Object.values(byCat).reduce((s,c)=>s+c.total,0);
+    return {ym,byCat,total};
+  });
+
+  const withData=allData.filter(d=>d.total>0);
+
+  if(!withData.length) {
+    el.innerHTML=`<div class="hist-empty">
+      <div style="font-size:32px;margin-bottom:12px">📊</div>
+      <strong>Aquí verás tu historial</strong><br>
+      Conforme vayas agregando gastos aparecerán agrupados por categoría mes a mes.<br>
+      <span style="font-size:12px;margin-top:8px;display:block">Empieza agregando fijos o un gasto variable.</span>
+    </div>`;
+    return;
+  }
+
+  const maxTotal=Math.max(...withData.map(d=>d.total),1);
+
+  // top stats
+  const best=withData.reduce((a,b)=>a.total<b.total?a:b);
+  const worst=withData.reduce((a,b)=>a.total>b.total?a:b);
+  const avg=withData.reduce((s,d)=>s+d.total,0)/withData.length;
+
+  // most expensive category overall
+  const catTotals={};
+  withData.forEach(d=>Object.entries(d.byCat).forEach(([cat,v])=>{ catTotals[cat]=(catTotals[cat]||0)+v.total; }));
+  const topCat=Object.entries(catTotals).sort((a,b)=>b[1]-a[1])[0];
+  const topCatInfo=topCat?CATS[topCat[0]]||CATS.otro:null;
+
+  let html=`<div class="hist-top-stats">
+    <div class="stat"><div class="stat-label">Mes más alto</div><div class="stat-val" style="color:var(--red);font-size:17px">${fmt(worst.total)}</div><div style="font-size:11px;color:var(--muted);margin-top:3px">${formatMonth(worst.ym)}</div></div>
+    <div class="stat"><div class="stat-label">Mes más bajo</div><div class="stat-val" style="color:var(--green);font-size:17px">${fmt(best.total)}</div><div style="font-size:11px;color:var(--muted);margin-top:3px">${formatMonth(best.ym)}</div></div>
+    <div class="stat"><div class="stat-label">Promedio</div><div class="stat-val" style="color:var(--shared);font-size:17px">${fmt(avg)}</div></div>
+    ${topCatInfo?`<div class="stat"><div class="stat-label">Mayor gasto</div><div class="stat-val" style="color:${topCatInfo.color};font-size:17px">${topCatInfo.icon}</div><div style="font-size:11px;color:var(--muted);margin-top:3px">${topCatInfo.label}</div></div>`:''}
+  </div>`;
+
+  allData.forEach((d,idx)=>{
+    if(d.total===0 && idx>2) return; // skip empty old months
+    const uid='h'+d.ym.replace('-','');
+    const prev=allData[idx+1];
+    let trendHtml='';
+    if(prev&&prev.total>0) {
+      const diff=d.total-prev.total;
+      const pct=Math.abs(Math.round(diff/prev.total*100));
+      if(diff>500) trendHtml=`<span class="trend-badge trend-up">▲ ${pct}%</span>`;
+      else if(diff<-500) trendHtml=`<span class="trend-badge trend-down">▼ ${pct}%</span>`;
+      else trendHtml=`<span class="trend-badge trend-eq">─ estable</span>`;
+    }
+
+    // bars por categoría, ordenadas de mayor a menor
+    const sortedCats=Object.entries(d.byCat).sort((a,b)=>b[1].total-a[1].total);
+    const barsHtml=sortedCats.map(([cat,cv])=>{
+      const c=CATS[cat]||CATS.otro;
+      const w=maxTotal>0?Math.round(cv.total/maxTotal*100):0;
+      return `<div class="hbar-row">
+        <span class="hbar-icon">${c.icon}</span>
+        <div class="hbar-track"><div class="hbar-fill" style="width:${w}%;background:${c.color}"></div></div>
+        <span class="hbar-amt" style="color:${c.color}">${fmt(cv.total)}</span>
+      </div>`;
+    }).join('');
+
+    // detalle
+    let detHtml='';
+    sortedCats.forEach(([cat,cv])=>{
+      const c=CATS[cat]||CATS.otro;
+      // show items of this cat this month
+      const realItems=cv.items||[];
+      if(!realItems.length) return;
+      detHtml+=`<div class="hist-detail-section">
+        <div class="hist-detail-title"><span>${c.icon}</span>${c.label} — <span style="color:${c.color}">${fmt(cv.total)}</span></div>
+        ${realItems.map(it=>`
+          <div class="hist-item">
+            <span class="hist-item-name">${it.nombre}${it._fijo?' <span style="font-size:10px;color:var(--muted)">(fijo)</span>':''}</span>
+            <span class="hist-item-amt" style="color:${c.color}">${fmt(it._msi?it.mensualidad:it.total)}</span>
+          </div>`).join('')}
+      </div>`;
+    });
+
+    html+=`<div class="hist-month">
+      <div class="hist-header" onclick="toggleHist('${uid}')">
+        <div class="hist-header-left">
+          <div class="hist-month-name">${formatMonth(d.ym)}</div>
+          <div class="hist-meta">${trendHtml}</div>
+        </div>
+        <div class="hist-header-right">
+          <span class="hist-total">${d.total>0?fmt(d.total):'—'}</span>
+          <span class="hist-chevron" id="chev-${uid}">▼</span>
+        </div>
+      </div>
+      ${d.total>0?`<div class="hist-bars">${barsHtml}</div>`:''}
+      <div class="hist-detail" id="${uid}">
+        ${d.total>0?detHtml:'<div style="color:var(--muted);font-size:13px;padding:8px 0">Sin gastos registrados este mes.</div>'}
+      </div>
+    </div>`;
+  });
+
+  el.innerHTML=html;
+}
+
+function toggleHist(uid) {
+  const det=document.getElementById(uid);
+  const chev=document.getElementById('chev-'+uid);
+  const open=det.classList.contains('open');
+  det.classList.toggle('open',!open);
+  chev.classList.toggle('open',!open);
+}
+
+// ─── INIT ─────────────────────────────────────────────────────
+load();
+populateMonthSelect('resumen-mes');
+populateMonthSelect('gastos-mes');
+renderResumen();
+</script>
+</body>
+</html>
