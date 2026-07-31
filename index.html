@@ -155,6 +155,19 @@
   .hist-top-stats { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:20px; }
   @media(max-width:500px) { .hist-top-stats { grid-template-columns:1fr 1fr; } }
 
+  /* AÑO FOLDER */
+  .year-folder { margin-bottom:16px; }
+  .year-header { display:flex; justify-content:space-between; align-items:center; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px 18px; cursor:pointer; user-select:none; transition:background .15s; }
+  .year-header:hover { background:var(--card); }
+  .year-header-left { display:flex; align-items:center; gap:12px; }
+  .year-icon { font-size:22px; }
+  .year-title { font-size:18px; font-weight:800; color:var(--text); }
+  .year-sub { font-size:12px; color:var(--muted); margin-top:2px; }
+  .year-header-right { display:flex; align-items:center; gap:10px; }
+  .year-total { font-size:18px; font-weight:800; color:var(--shared); }
+  .year-body { display:none; padding:10px 0 0 12px; }
+  .year-body.open { display:block; }
+
   /* MODAL EDICIÓN / PAGO PARCIAL */
   .modal-overlay { display:none; position:fixed; inset:0; background:#00000090; z-index:999; align-items:center; justify-content:center; padding:16px; }
   .modal-overlay.open { display:flex; }
@@ -1424,67 +1437,125 @@ document.querySelectorAll('.modal-overlay').forEach(el => {
 // ── HISTORIAL ─────────────────────────────────────────────────
 function allHistMonths() {
   const s=new Set();
-  const now=new Date();
-  for(let i=0;i<12;i++) { const d=new Date(now.getFullYear(),now.getMonth()-i,1); s.add(d.toISOString().slice(0,7)); }
+  // solo meses con datos reales — sin generar meses vacíos del pasado
   state.gastos.forEach(g=>s.add(g.fecha.slice(0,7)));
-  state.compras.forEach(c=>{s.add(c.fecha.slice(0,7));s.add(c.end);});
+  state.compras.forEach(c=>s.add(c.fecha.slice(0,7)));
+  state.fijos.forEach(()=>s.add(new Date().toISOString().slice(0,7))); // fijos solo en mes actual
   return [...s].sort().reverse();
 }
 function renderHistorial() {
-  const el=document.getElementById('historial-content');
-  const months=allHistMonths();
-  const allData=months.map(ym=>{ const byCat=getMonthCats(ym); const total=Object.values(byCat).reduce((s,c)=>s+c.total,0); return {ym,byCat,total}; });
-  const withData=allData.filter(d=>d.total>0);
-  if(!withData.length) {
-    el.innerHTML=`<div class="hist-empty"><div style="font-size:32px;margin-bottom:12px">📊</div><strong>Aquí verás tu historial</strong><br>Conforme agreguen gastos aparecerán agrupados por categoría.<br><span style="font-size:12px;margin-top:8px;display:block">Empieza desde Gastos o Fijos.</span></div>`;
+  const el = document.getElementById('historial-content');
+  const months = allHistMonths();
+  const allData = months
+    .map(ym => { const byCat=getMonthCats(ym); const total=Object.values(byCat).reduce((s,c)=>s+c.total,0); return {ym,byCat,total}; })
+    .filter(d => d.total > 0);
+
+  if(!allData.length) {
+    el.innerHTML=`<div class="hist-empty"><div style="font-size:32px;margin-bottom:12px">📊</div><strong>Aquí verás tu historial</strong><br>Conforme agreguen gastos aparecerán agrupados por año y mes.<br><span style="font-size:12px;margin-top:8px;display:block">Empieza desde Gastos o Fijos.</span></div>`;
     return;
   }
-  const maxTotal=Math.max(...withData.map(d=>d.total),1);
-  const best=withData.reduce((a,b)=>a.total<b.total?a:b);
-  const worst=withData.reduce((a,b)=>a.total>b.total?a:b);
-  const avg=withData.reduce((s,d)=>s+d.total,0)/withData.length;
-  const catTotals={};
-  withData.forEach(d=>Object.entries(d.byCat).forEach(([cat,v])=>{ catTotals[cat]=(catTotals[cat]||0)+v.total; }));
-  const topCat=Object.entries(catTotals).sort((a,b)=>b[1]-a[1])[0];
-  const topCatInfo=topCat?CATS[topCat[0]]||CATS.otro:null;
-  let html=`<div class="hist-top-stats">
+
+  // ── stats globales (todos los meses) ──
+  const maxTotal = Math.max(...allData.map(d=>d.total), 1);
+  const best  = allData.reduce((a,b)=>a.total<b.total?a:b);
+  const worst = allData.reduce((a,b)=>a.total>b.total?a:b);
+  const avg   = allData.reduce((s,d)=>s+d.total,0) / allData.length;
+  const catTotals = {};
+  allData.forEach(d=>Object.entries(d.byCat).forEach(([cat,v])=>{ catTotals[cat]=(catTotals[cat]||0)+v.total; }));
+  const topCat = Object.entries(catTotals).sort((a,b)=>b[1]-a[1])[0];
+  const topCatInfo = topCat ? CATS[topCat[0]]||CATS.otro : null;
+
+  let html = `<div class="hist-top-stats">
     <div class="stat"><div class="stat-label">Mes más alto</div><div class="stat-val" style="color:var(--red);font-size:17px">${fmt(worst.total)}</div><div style="font-size:11px;color:var(--muted);margin-top:3px">${formatMonth(worst.ym)}</div></div>
     <div class="stat"><div class="stat-label">Mes más bajo</div><div class="stat-val" style="color:var(--green);font-size:17px">${fmt(best.total)}</div><div style="font-size:11px;color:var(--muted);margin-top:3px">${formatMonth(best.ym)}</div></div>
-    <div class="stat"><div class="stat-label">Promedio</div><div class="stat-val" style="color:var(--shared);font-size:17px">${fmt(avg)}</div></div>
-    ${topCatInfo?`<div class="stat"><div class="stat-label">Mayor gasto</div><div class="stat-val" style="color:${topCatInfo.color};font-size:17px">${topCatInfo.icon}</div><div style="font-size:11px;color:var(--muted);margin-top:3px">${topCatInfo.label}</div></div>`:''}
+    <div class="stat"><div class="stat-label">Promedio mensual</div><div class="stat-val" style="color:var(--shared);font-size:17px">${fmt(avg)}</div></div>
+    ${topCatInfo?`<div class="stat"><div class="stat-label">Mayor categoría</div><div class="stat-val" style="color:${topCatInfo.color};font-size:17px">${topCatInfo.icon}</div><div style="font-size:11px;color:var(--muted);margin-top:3px">${topCatInfo.label}</div></div>`:''}
   </div>`;
-  allData.forEach((d,idx)=>{
-    if(d.total===0 && idx>2) return;
-    const uid='h'+d.ym.replace('-','');
-    const prev=allData[idx+1];
-    let trendHtml='';
-    if(prev&&prev.total>0) {
-      const diff=d.total-prev.total, pct=Math.abs(Math.round(diff/prev.total*100));
-      if(diff>500) trendHtml=`<span class="trend-badge trend-up">▲ ${pct}%</span>`;
-      else if(diff<-500) trendHtml=`<span class="trend-badge trend-down">▼ ${pct}%</span>`;
-      else trendHtml=`<span class="trend-badge trend-eq">─ estable</span>`;
-    }
-    const sortedCats=Object.entries(d.byCat).sort((a,b)=>b[1].total-a[1].total);
-    const barsHtml=sortedCats.map(([cat,cv])=>{ const c=CATS[cat]||CATS.otro; const w=maxTotal>0?Math.round(cv.total/maxTotal*100):0;
-      return `<div class="hbar-row"><span class="hbar-icon">${c.icon}</span><div class="hbar-track"><div class="hbar-fill" style="width:${w}%;background:${c.color}"></div></div><span class="hbar-amt" style="color:${c.color}">${fmt(cv.total)}</span></div>`; }).join('');
-    let detHtml='';
-    sortedCats.forEach(([cat,cv])=>{
-      const c=CATS[cat]||CATS.otro;
-      if(!(cv.items||[]).length) return;
-      detHtml+=`<div class="hist-detail-section"><div class="hist-detail-title"><span>${c.icon}</span>${c.label} — <span style="color:${c.color}">${fmt(cv.total)}</span></div>
-        ${cv.items.map(it=>`<div class="hist-item"><span>${it.nombre}${it._fijo?' <span style="font-size:10px;color:var(--muted)">(fijo)</span>':''}</span><span style="font-weight:600;color:${c.color}">${fmt(it._msi?it.mensualidad:it.total)}</span></div>`).join('')}
+
+  // ── agrupar por año ──
+  const byYear = {};
+  allData.forEach(d => {
+    const yr = d.ym.slice(0,4);
+    if(!byYear[yr]) byYear[yr] = [];
+    byYear[yr].push(d);
+  });
+
+  const currentYear = new Date().getFullYear().toString();
+
+  Object.keys(byYear).sort().reverse().forEach(yr => {
+    const yearData = byYear[yr];
+    const yearTotal = yearData.reduce((s,d)=>s+d.total, 0);
+    const yearAvg   = yearTotal / yearData.length;
+    const isCurrentYear = yr === currentYear;
+
+    // year folder header
+    html += `<div class="year-folder">
+      <div class="year-header" onclick="toggleYear('${yr}')">
+        <div class="year-header-left">
+          <span class="year-icon">${isCurrentYear?'📂':'🗂️'}</span>
+          <div>
+            <div class="year-title">${yr}</div>
+            <div class="year-sub">${yearData.length} mes${yearData.length!==1?'es':''} · Promedio ${fmt(yearAvg)}/mes</div>
+          </div>
+        </div>
+        <div class="year-header-right">
+          <span class="year-total">${fmt(yearTotal)}</span>
+          <span class="hist-chevron ${isCurrentYear?'open':''}" id="yr-chev-${yr}">▼</span>
+        </div>
+      </div>
+      <div class="year-body ${isCurrentYear?'open':''}" id="yr-body-${yr}">`;
+
+    // months inside this year
+    yearData.forEach((d, idx) => {
+      const uid  = 'h'+d.ym.replace('-','');
+      const prev = yearData[idx+1];
+      let trendHtml = '';
+      if(prev && prev.total > 0) {
+        const diff = d.total - prev.total;
+        const pct  = Math.abs(Math.round(diff/prev.total*100));
+        if(diff > 500)       trendHtml = `<span class="trend-badge trend-up">▲ ${pct}%</span>`;
+        else if(diff < -500) trendHtml = `<span class="trend-badge trend-down">▼ ${pct}%</span>`;
+        else                 trendHtml = `<span class="trend-badge trend-eq">─ estable</span>`;
+      }
+
+      const sortedCats = Object.entries(d.byCat).sort((a,b)=>b[1].total-a[1].total);
+      const barsHtml   = sortedCats.map(([cat,cv])=>{
+        const cc = CATS[cat]||CATS.otro;
+        const w  = maxTotal>0 ? Math.round(cv.total/maxTotal*100) : 0;
+        return `<div class="hbar-row"><span class="hbar-icon">${cc.icon}</span><div class="hbar-track"><div class="hbar-fill" style="width:${w}%;background:${cc.color}"></div></div><span class="hbar-amt" style="color:${cc.color}">${fmt(cv.total)}</span></div>`;
+      }).join('');
+
+      let detHtml = '';
+      sortedCats.forEach(([cat,cv])=>{
+        const cc = CATS[cat]||CATS.otro;
+        if(!(cv.items||[]).length) return;
+        detHtml += `<div class="hist-detail-section">
+          <div class="hist-detail-title"><span>${cc.icon}</span>${cc.label} — <span style="color:${cc.color}">${fmt(cv.total)}</span></div>
+          ${cv.items.map(it=>`<div class="hist-item"><span>${it.nombre}${it._fijo?' <span style="font-size:10px;color:var(--muted)">(fijo)</span>':''}</span><span style="font-weight:600;color:${cc.color}">${fmt(it._msi?it.mensualidad:it.total)}</span></div>`).join('')}
+        </div>`;
+      });
+
+      html += `<div class="hist-month">
+        <div class="hist-header" onclick="toggleHist('${uid}')">
+          <div class="hist-header-left"><div class="hist-month-name">${formatMonth(d.ym)}</div><div class="hist-meta">${trendHtml}</div></div>
+          <div class="hist-header-right"><span class="hist-total">${fmt(d.total)}</span><span class="hist-chevron" id="chev-${uid}">▼</span></div>
+        </div>
+        <div class="hist-bars">${barsHtml}</div>
+        <div class="hist-detail" id="${uid}">${detHtml||'<div style="color:var(--muted);font-size:13px;padding:8px 0">Sin detalle.</div>'}</div>
       </div>`;
     });
-    html+=`<div class="hist-month">
-      <div class="hist-header" onclick="toggleHist('${uid}')">
-        <div class="hist-header-left"><div class="hist-month-name">${formatMonth(d.ym)}</div><div class="hist-meta">${trendHtml}</div></div>
-        <div class="hist-header-right"><span class="hist-total">${d.total>0?fmt(d.total):'—'}</span><span class="hist-chevron" id="chev-${uid}">▼</span></div>
-      </div>
-      ${d.total>0?`<div class="hist-bars">${barsHtml}</div>`:''}
-      <div class="hist-detail" id="${uid}">${d.total>0?detHtml:'<div style="color:var(--muted);font-size:13px;padding:8px 0">Sin gastos registrados.</div>'}</div>
-    </div>`;
+
+    html += `</div></div>`; // close year-body + year-folder
   });
-  el.innerHTML=html;
+
+  el.innerHTML = html;
+}
+
+function toggleYear(yr) {
+  const body = document.getElementById('yr-body-'+yr);
+  const chev = document.getElementById('yr-chev-'+yr);
+  body.classList.toggle('open');
+  chev.classList.toggle('open');
 }
 function toggleHist(uid) {
   const det=document.getElementById(uid), chev=document.getElementById('chev-'+uid);
