@@ -1849,9 +1849,11 @@ function saveEdit() {
   renderResumen();
 }
 
-// close modals clicking overlay
-document.querySelectorAll('.modal-overlay').forEach(el => {
-  el.addEventListener('click', e => { if(e.target===el) el.classList.remove('open'); });
+// close modals clicking overlay — wait for DOM
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.modal-overlay').forEach(el => {
+    el.addEventListener('click', e => { if(e.target===el) el.classList.remove('open'); });
+  });
 });
 
 // ── HISTORIAL ─────────────────────────────────────────────────
@@ -2143,23 +2145,23 @@ function deleteAhorro(id) {
 }
 
 // ── INIT ──────────────────────────────────────────────────────
-// Init login screen
-checkLoginMode();
-const savedUser = localStorage.getItem('fka-user');
-const savedPAT  = localStorage.getItem('fka-pat');
-const savedPass = localStorage.getItem('fka-pass');
-if(savedUser && savedPass) {
-  // have saved session — auto-fill and try
-  currentUser = savedUser;
-  currentPAT  = savedPAT || '';
-  currentPass = savedPass;
-  document.getElementById('login-user').value = savedUser;
-  document.getElementById('login-pass').value = savedPass;
-  if(savedPAT) {
-    // auto-login silently
-    doLogin();
+// Init — wrapped so all functions are defined before running
+window.addEventListener('DOMContentLoaded', () => {
+  checkLoginMode();
+  const savedUser = localStorage.getItem('fka-user');
+  const savedPAT  = localStorage.getItem('fka-pat');
+  const savedPass = localStorage.getItem('fka-pass');
+  if(savedUser && savedPass) {
+    currentUser = savedUser;
+    currentPAT  = savedPAT || '';
+    currentPass = savedPass;
+    document.getElementById('login-user').value = savedUser;
+    document.getElementById('login-pass').value = savedPass;
+    if(savedPAT) {
+      doLogin();
+    }
   }
-}
+});
 
 // ── SWIPE PARA CAMBIAR PESTAÑA (móvil) ──────────────────────
 (function() {
