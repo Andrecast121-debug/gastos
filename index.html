@@ -435,6 +435,14 @@
               <option value="custom">Personalizado</option>
             </select>
           </div>
+          <div class="form-group">
+            <label>¿Quién lo paga físicamente?</label>
+            <select id="fijo-quien-pago">
+              <option value="karla">Karla</option>
+              <option value="andre">Andre</option>
+              <option value="compartido">Cada quien lo suyo</option>
+            </select>
+          </div>
           <div class="form-group" id="fijo-karla-wrap" style="display:none">
             <label>Parte Karla $</label>
             <input id="fijo-karla" type="number" placeholder="0.00" oninput="calcAndre()">
@@ -829,7 +837,8 @@ function addFijo() {
   else if(pagador==='andre') andre=monto;
   else if(pagador==='ambos') { karla=monto/2; andre=monto/2; }
   else { karla=+document.getElementById('fijo-karla').value||0; andre=+document.getElementById('fijo-andre').value||0; }
-  state.fijos.push({id:Date.now(),nombre,monto,pagador,karla,andre,cat});
+  const quien_pago_fijo = document.getElementById('fijo-quien-pago').value;
+  state.fijos.push({id:Date.now(),nombre,monto,pagador,karla,andre,cat,quien_pago:quien_pago_fijo,liquidado:quien_pago_fijo==='compartido'});
   save(); renderFijos();
   document.getElementById('fijo-nombre').value=''; document.getElementById('fijo-monto').value='';
   document.getElementById('fijo-pagador').value='karla';
@@ -840,6 +849,12 @@ function addFijo() {
 function deleteFijo(id) {
   if(!confirm('¿Eliminar este gasto fijo?')) return;
   state.fijos=state.fijos.filter(f=>f.id!==id); save(); renderFijos();
+}
+function toggleLiquidadoFijo(id) {
+  const f = state.fijos.find(x=>x.id===id);
+  if(!f) return;
+  f.liquidado = !f.liquidado;
+  save(); renderFijos(); renderResumen();
 }
 function renderFijos() {
   const el=document.getElementById('list-fijos');
@@ -857,15 +872,24 @@ function renderFijos() {
     const c=CATS[cat]||CATS.otro;
     html+=`<div class="section-header" style="margin-top:16px"><h2>${c.icon} ${c.label}</h2></div>`;
     items.forEach(f=>{
-      html+=`<div class="entry">
+      const fDeuda = !f.liquidado && f.quien_pago && f.quien_pago!=='compartido'
+        ? (f.quien_pago==='karla' && f.andre>0 ? `Andre debe ${fmt(f.andre)}`
+          : f.quien_pago==='andre' && f.karla>0 ? `Karla debe ${fmt(f.karla)}` : null)
+        : null;
+      html+=`<div class="entry ${f.liquidado?'entry-liquidada':''}">
         <div class="entry-main">
-          <div class="entry-name">${f.nombre}</div>
+          <div class="entry-name">${f.nombre} ${f.liquidado?'<span class="liq-badge">✓ Liquidado</span>':''}</div>
           <div class="entry-split">
-            ${f.karla>0?`<span class="split-tag karla">Karla ${fmt(f.karla)}</span>`:''}
-            ${f.andre>0?`<span class="split-tag andre">Andre ${fmt(f.andre)}</span>`:''}
+            ${f.quien_pago&&f.quien_pago!=='compartido'?`<span class="pagador-tag ${f.quien_pago}">Pagó ${f.quien_pago==='karla'?'Karla':'Andre'}</span>`:''}
+            ${f.karla>0?`<span class="split-tag karla">K ${fmt(f.karla)}</span>`:''}
+            ${f.andre>0?`<span class="split-tag andre">A ${fmt(f.andre)}</span>`:''}
           </div>
+          ${fDeuda?`<div class="debe-tag">💸 ${fDeuda}</div>`:''}
         </div>
-        <div class="entry-amount" style="color:${c.color}">${fmt(f.monto)}</div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px">
+          <div class="entry-amount" style="color:${c.color}">${fmt(f.monto)}</div>
+          ${f.quien_pago&&f.quien_pago!=='compartido'?`<button class="liq-btn ${f.liquidado?'liq-done':''}" onclick="toggleLiquidadoFijo(${f.id})">${f.liquidado?'↩ Reabrir':'✓ Ya liquidé'}</button>`:''}
+        </div>
         <button class="edit-btn" onclick="openEdit('fijo',${f.id})" title="Editar">✏️</button>
         <button class="btn btn-danger" onclick="deleteFijo(${f.id})">✕</button>
       </div>`;
@@ -1138,17 +1162,23 @@ function renderResumen() {
   document.getElementById('resumen-breakdown').innerHTML=`<div class="breakdown">${rows}<div class="total-row"><span>Total</span><span style="color:var(--shared)">${fmt(total)}</span></div></div>`;
 
   // ── BALANCE: quién le debe cuánto a quién ──
-  // gastos de TODOS los meses no liquidados (no solo el mes filtrado)
+  // gastos variables pendientes
   const pendientes = state.gastos.filter(g => !g.liquidado && g.quien_pago && g.quien_pago !== 'compartido');
+  // fijos pendientes (paga uno pero el otro tiene parte)
+  const fijosPend  = state.fijos.filter(f => !f.liquidado && f.quien_pago && f.quien_pago !== 'compartido'
+    && ((f.quien_pago==='karla' && f.andre>0) || (f.quien_pago==='andre' && f.karla>0)));
 
-  // karla_debe: suma de lo que Karla debe a Andre (Andre pagó, Karla tiene parte)
-  // andre_debe: suma de lo que Andre debe a Karla (Karla pagó, Andre tiene parte)
   let karla_debe = 0, andre_debe = 0;
   pendientes.forEach(g => {
     if(g.quien_pago === 'andre' && g.karla > 0) karla_debe += g.karla;
     if(g.quien_pago === 'karla' && g.andre > 0) andre_debe += g.andre;
   });
-  const neto = karla_debe - andre_debe; // + = Karla debe a Andre, - = Andre debe a Karla
+  fijosPend.forEach(f => {
+    if(f.quien_pago === 'andre' && f.karla > 0) karla_debe += f.karla;
+    if(f.quien_pago === 'karla' && f.andre > 0) andre_debe += f.andre;
+  });
+  const totalPend = pendientes.length + fijosPend.length;
+  const neto = karla_debe - andre_debe;
 
   let bannerHtml = '';
   if(pendientes.length === 0) {
@@ -1159,7 +1189,7 @@ function renderResumen() {
       <div class="balance-text">
         <div class="balance-title">Karla le debe a Andre</div>
         <div class="balance-amount">${fmt(neto)}</div>
-        <div class="balance-sub">${pendientes.length} gasto${pendientes.length!==1?'s':''} pendiente${pendientes.length!==1?'s':''}</div>
+        <div class="balance-sub">${totalPend} pendiente${totalPend!==1?'s':''}</div>
       </div>
       <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
         <button class="balance-pay-btn" onclick="liquidarTodo('karla')">✓ Karla pagó todo</button>
@@ -1172,7 +1202,7 @@ function renderResumen() {
       <div class="balance-text">
         <div class="balance-title">Andre le debe a Karla</div>
         <div class="balance-amount" style="color:var(--andre)">${fmt(Math.abs(neto))}</div>
-        <div class="balance-sub">${pendientes.length} gasto${pendientes.length!==1?'s':''} pendiente${pendientes.length!==1?'s':''}</div>
+        <div class="balance-sub">${totalPend} pendiente${totalPend!==1?'s':''}</div>
       </div>
       <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
         <button class="balance-pay-btn" style="border-color:#60a5fa50;color:var(--andre)" onclick="liquidarTodo('andre')">✓ Andre pagó todo</button>
@@ -1186,25 +1216,44 @@ function renderResumen() {
 
   // lista de pendientes detallada
   let pendHtml = '';
-  if(pendientes.length) {
-    const mesActual = state.gastos.filter(g=>!g.liquidado&&g.quien_pago&&g.quien_pago!=='compartido'&&g.fecha.startsWith(mes));
-    if(mesActual.length) {
+  const mesGastos = state.gastos.filter(g=>!g.liquidado&&g.quien_pago&&g.quien_pago!=='compartido'&&g.fecha.startsWith(mes));
+  const todosPend = totalPend > 0;
+  if(todosPend) {
+    let rows = '';
+    // gastos del mes
+    mesGastos.forEach(g=>{
+      const debeAmt = g.quien_pago==='karla'?g.andre:g.karla;
+      const deudor  = g.quien_pago==='karla'?'Andre':'Karla';
+      rows += `<div class="pend-item">
+        <div class="pend-main">
+          <div class="pend-nombre">${g.nombre}</div>
+          <div class="pend-sub">${g.fecha} · Pagó ${g.quien_pago==='karla'?'Karla':'Andre'}</div>
+        </div>
+        <div class="pend-right">
+          <div class="pend-debe">${deudor} debe ${fmt(debeAmt)}</div>
+          <button class="liq-btn" onclick="toggleLiquidado(${g.id});renderResumen()">✓ Liquidar</button>
+        </div>
+      </div>`;
+    });
+    // fijos pendientes (siempre visibles, son recurrentes)
+    fijosPend.forEach(f=>{
+      const debeAmt = f.quien_pago==='karla'?f.andre:f.karla;
+      const deudor  = f.quien_pago==='karla'?'Andre':'Karla';
+      rows += `<div class="pend-item">
+        <div class="pend-main">
+          <div class="pend-nombre">${f.nombre} <span style="font-size:10px;color:var(--muted)">(fijo)</span></div>
+          <div class="pend-sub">Mensual · Pagó ${f.quien_pago==='karla'?'Karla':'Andre'}</div>
+        </div>
+        <div class="pend-right">
+          <div class="pend-debe">${deudor} debe ${fmt(debeAmt)}</div>
+          <button class="liq-btn" onclick="toggleLiquidadoFijo(${f.id});renderResumen()">✓ Liquidar</button>
+        </div>
+      </div>`;
+    });
+    if(rows) {
       pendHtml = `<div class="card" style="margin-top:14px">
-        <div class="card-title">Pendientes de liquidar — ${formatMonth(mes)}</div>
-        ${mesActual.map(g=>{
-          const debeAmt = g.quien_pago==='karla'?g.andre:g.karla;
-          const deudor  = g.quien_pago==='karla'?'Andre':'Karla';
-          return `<div class="pend-item">
-            <div class="pend-main">
-              <div class="pend-nombre">${g.nombre}</div>
-              <div class="pend-sub">${g.fecha} · Pagó ${g.quien_pago==='karla'?'Karla':'Andre'}</div>
-            </div>
-            <div class="pend-right">
-              <div class="pend-debe">${deudor} debe ${fmt(debeAmt)}</div>
-              <button class="liq-btn" onclick="toggleLiquidado(${g.id});renderResumen()">✓ Liquidar</button>
-            </div>
-          </div>`;
-        }).join('')}
+        <div class="card-title">Pendientes de liquidar</div>
+        ${rows}
       </div>`;
     }
   }
@@ -1218,8 +1267,15 @@ function liquidarTodo(quienPago) {
       if(quienPago === 'andre' && g.quien_pago === 'karla' && g.andre > 0) { g.liquidado = true; g.abonado = g.andre; }
     }
   });
+  state.fijos.forEach(f => {
+    if(!f.liquidado && f.quien_pago && f.quien_pago !== 'compartido') {
+      if(quienPago === 'karla' && f.quien_pago === 'andre' && f.karla > 0) f.liquidado = true;
+      if(quienPago === 'andre' && f.quien_pago === 'karla' && f.andre > 0) f.liquidado = true;
+    }
+  });
   save(); renderResumen();
   if(document.getElementById('page-gastos').classList.contains('active')) renderGastos();
+  if(document.getElementById('page-fijos').classList.contains('active')) renderFijos();
 }
 
 // ── PAGO PARCIAL ──────────────────────────────────────────────
@@ -1249,13 +1305,21 @@ function openParcial(deudor, total) {
 }
 
 function getPendientesDeudor(deudor) {
-  return state.gastos.filter(g => {
+  const gastos = state.gastos.filter(g => {
     if(g.liquidado) return false;
     if(!g.quien_pago || g.quien_pago === 'compartido') return false;
     if(deudor === 'karla') return g.quien_pago === 'andre' && g.karla > 0;
     if(deudor === 'andre') return g.quien_pago === 'karla' && g.andre > 0;
     return false;
   });
+  const fijos = state.fijos.filter(f => {
+    if(f.liquidado) return false;
+    if(!f.quien_pago || f.quien_pago === 'compartido') return false;
+    if(deudor === 'karla') return f.quien_pago === 'andre' && f.karla > 0;
+    if(deudor === 'andre') return f.quien_pago === 'karla' && f.andre > 0;
+    return false;
+  }).map(f => ({...f, fecha: new Date().toISOString().split('T')[0], total: deudor==='karla'?f.karla:f.andre}));
+  return [...gastos, ...fijos];
 }
 
 function confirmarParcial() {
@@ -1352,6 +1416,13 @@ function openEdit(type, id) {
         <input id="ed-andre" type="number" value="${f.andre||0}" oninput="previewFijoSplitCustom('andre')">
       </div>
       <div id="ed-split-preview" style="font-size:12px;color:var(--muted);margin-top:4px"></div>
+      <div class="modal-field" style="margin-top:8px"><label>¿Quién lo paga físicamente?</label>
+        <select id="ed-quien-pago">
+          <option value="karla"       \${(f.quien_pago||'karla')==='karla'?'selected':''}>Karla</option>
+          <option value="andre"       \${(f.quien_pago||'')==='andre'?'selected':''}>Andre</option>
+          <option value="compartido"  \${(f.quien_pago||'')==='compartido'?'selected':''}>Cada quien lo suyo</option>
+        </select>
+      </div>
       <div class="modal-field" style="margin-top:8px"><label>Categoría</label>
         <select id="ed-cat">
           <option value="entretenimiento" ${f.cat==='entretenimiento'?'selected':''}>🎬 Entretenimiento</option>
@@ -1449,10 +1520,13 @@ function saveEdit() {
     if(!f) return;
     f.nombre   = v('ed-nombre') || f.nombre;
     f.cat      = v('ed-cat')    || f.cat;
-    const newMonto   = n('ed-total') || f.monto;
-    const newPagador = v('ed-pagador') || f.pagador || 'karla';
-    f.monto   = newMonto;
-    f.pagador = newPagador;
+    const newMonto     = n('ed-total') || f.monto;
+    const newPagador   = v('ed-pagador') || f.pagador || 'karla';
+    const newQuienPago = v('ed-quien-pago') || f.quien_pago || 'compartido';
+    f.monto     = newMonto;
+    f.pagador   = newPagador;
+    f.quien_pago = newQuienPago;
+    f.liquidado  = newQuienPago === 'compartido';
     if(newPagador === 'karla')  { f.karla = newMonto; f.andre = 0; }
     else if(newPagador === 'andre')  { f.karla = 0; f.andre = newMonto; }
     else if(newPagador === 'ambos')  { f.karla = +(newMonto/2).toFixed(2); f.andre = +(newMonto/2).toFixed(2); }
