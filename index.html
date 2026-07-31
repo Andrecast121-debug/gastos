@@ -187,6 +187,22 @@
   .edit-btn:hover { background:var(--surface); color:var(--text); }
 
   /* BALANCE / LIQUIDACIÓN */
+  /* CARPETAS DE CATEGORÍA */
+  .cat-folder { margin-bottom:10px; }
+  .cat-folder-header { display:flex; justify-content:space-between; align-items:center; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:13px 16px; cursor:pointer; user-select:none; transition:background .15s; }
+  .cat-folder-header:hover { background:var(--card); }
+  .cat-folder-left { display:flex; align-items:center; gap:12px; }
+  .cat-folder-icon { font-size:22px; width:32px; text-align:center; flex-shrink:0; }
+  .cat-folder-info { display:flex; flex-direction:column; gap:2px; }
+  .cat-folder-name { font-size:15px; font-weight:700; }
+  .cat-folder-meta { font-size:11px; color:var(--muted); }
+  .cat-folder-right { display:flex; align-items:center; gap:10px; }
+  .cat-folder-total { font-size:17px; font-weight:800; }
+  .cat-folder-chev { color:var(--muted); font-size:11px; transition:transform .2s; }
+  .cat-folder-chev.open { transform:rotate(180deg); }
+  .cat-folder-body { display:none; padding:8px 0 4px 0; }
+  .cat-folder-body.open { display:block; }
+
   /* CARRUSEL PENDIENTES MES */
   .pend-carousel-wrap { margin-top:14px; }
   .pend-carousel-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin-bottom:10px; }
@@ -919,20 +935,24 @@ function renderFijos() {
   const totalA=state.fijos.reduce((s,f)=>s+f.andre,0);
   const byCat={};
   state.fijos.forEach(f=>{ const k=f.cat||'fijos'; if(!byCat[k]) byCat[k]=[]; byCat[k].push(f); });
+
   let html=`<div class="card" style="margin-bottom:14px"><div class="breakdown">
     <div class="breakdown-row"><span>Karla mensual</span><span class="amount" style="color:var(--karla)">${fmt(totalK)}</span></div>
     <div class="breakdown-row"><span>Andre mensual</span><span class="amount" style="color:var(--andre)">${fmt(totalA)}</span></div>
     <div class="total-row"><span>Total mensual</span><span style="color:var(--shared)">${fmt(totalK+totalA)}</span></div>
   </div></div>`;
+
   Object.entries(byCat).forEach(([cat,items])=>{
-    const c=CATS[cat]||CATS.otro;
-    html+=`<div class="section-header" style="margin-top:16px"><h2>${c.icon} ${c.label}</h2></div>`;
+    const cc=CATS[cat]||CATS.otro;
+    const catTotal=items.reduce((s,f)=>s+f.monto,0);
+    const pendCount=items.filter(f=>!f.liquidado&&f.quien_pago&&f.quien_pago!=='compartido').length;
+    const uid='ff-'+cat;
+    let itemsHtml='';
     items.forEach(f=>{
-      const fDeuda = !f.liquidado && f.quien_pago && f.quien_pago!=='compartido'
-        ? (f.quien_pago==='karla' && f.andre>0 ? `Andre debe ${fmt(f.andre)}`
-          : f.quien_pago==='andre' && f.karla>0 ? `Karla debe ${fmt(f.karla)}` : null)
-        : null;
-      html+=`<div class="entry ${f.liquidado?'entry-liquidada':''}">
+      const fDeuda=!f.liquidado&&f.quien_pago&&f.quien_pago!=='compartido'
+        ?(f.quien_pago==='karla'&&f.andre>0?`Andre debe ${fmt(f.andre)}`
+          :f.quien_pago==='andre'&&f.karla>0?`Karla debe ${fmt(f.karla)}`:null):null;
+      itemsHtml+=`<div class="entry ${f.liquidado?'entry-liquidada':''}">
         <div class="entry-main">
           <div class="entry-name">${f.nombre} ${f.liquidado?'<span class="liq-badge">✓ Liquidado</span>':''}</div>
           <div class="entry-split">
@@ -943,13 +963,29 @@ function renderFijos() {
           ${fDeuda?`<div class="debe-tag">💸 ${fDeuda}</div>`:''}
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px">
-          <div class="entry-amount" style="color:${c.color}">${fmt(f.monto)}</div>
+          <div class="entry-amount" style="color:${cc.color}">${fmt(f.monto)}</div>
           ${f.quien_pago&&f.quien_pago!=='compartido'?`<button class="liq-btn ${f.liquidado?'liq-done':''}" onclick="toggleLiquidadoFijo(${f.id})">${f.liquidado?'↩ Reabrir':'✓ Ya liquidé'}</button>`:''}
         </div>
         <button class="edit-btn" onclick="openEdit('fijo',${f.id})" title="Editar">✏️</button>
         <button class="btn btn-danger" onclick="deleteFijo(${f.id})">✕</button>
       </div>`;
     });
+    html+=`<div class="cat-folder">
+      <div class="cat-folder-header" onclick="toggleCatFolder('${uid}')">
+        <div class="cat-folder-left">
+          <div class="cat-folder-icon">${cc.icon}</div>
+          <div class="cat-folder-info">
+            <div class="cat-folder-name">${cc.label}</div>
+            <div class="cat-folder-meta">${items.length} servicio${items.length!==1?'s':''}${pendCount>0?` · <span style="color:var(--yellow)">${pendCount} pendiente${pendCount!==1?'s':''}</span>':' · ✅ al corriente'}</div>
+          </div>
+        </div>
+        <div class="cat-folder-right">
+          <span class="cat-folder-total" style="color:${cc.color}">${fmt(catTotal)}</span>
+          <span class="cat-folder-chev" id="chev-${uid}">▼</span>
+        </div>
+      </div>
+      <div class="cat-folder-body" id="${uid}">${itemsHtml}</div>
+    </div>`;
   });
   el.innerHTML=html;
 }
@@ -1007,16 +1043,18 @@ function renderGastos() {
     <div class="breakdown-row"><span>Andre este mes</span><span class="amount" style="color:var(--andre)">${fmt(totalA)}</span></div>
     <div class="total-row"><span>Total</span><span style="color:var(--shared)">${fmt(totalK+totalA)}</span></div>
   </div></div>`;
+
   Object.entries(byCat).forEach(([cat,gs])=>{
-    const c=CATS[cat]||CATS.otro;
+    const cc=CATS[cat]||CATS.otro;
     const catTotal=gs.reduce((s,g)=>s+g.total,0);
-    html+=`<div class="section-header" style="margin-top:16px"><h2>${c.icon} ${c.label}</h2><span style="font-weight:700;color:${c.color}">${fmt(catTotal)}</span></div>`;
+    const pendCount=gs.filter(g=>!g.liquidado&&g.quien_pago&&g.quien_pago!=='compartido').length;
+    const uid='gf-'+cat+'-'+mes.replace('-','');
+    let itemsHtml='';
     gs.forEach(g=>{
-      const debeQuien = !g.liquidado && g.quien_pago && g.quien_pago!=='compartido'
-        ? (g.quien_pago==='karla' && g.andre>0 ? 'Andre le debe a Karla'
-          : g.quien_pago==='andre' && g.karla>0 ? 'Karla le debe a Andre' : null)
-        : null;
-      html+=`<div class="entry ${g.liquidado?'entry-liquidada':''}">
+      const debeQuien=!g.liquidado&&g.quien_pago&&g.quien_pago!=='compartido'
+        ?(g.quien_pago==='karla'&&g.andre>0?'Andre le debe a Karla'
+          :g.quien_pago==='andre'&&g.karla>0?'Karla le debe a Andre':null):null;
+      itemsHtml+=`<div class="entry ${g.liquidado?'entry-liquidada':''}">
         <div class="entry-main">
           <div class="entry-name">${g.nombre} ${g.liquidado?'<span class="liq-badge">✓ Liquidado</span>':''}</div>
           <div class="entry-sub">${g.fecha}${g.notas?' · '+g.notas:''}</div>
@@ -1028,15 +1066,39 @@ function renderGastos() {
           ${debeQuien?`<div class="debe-tag">💸 ${debeQuien}: ${fmt(g.quien_pago==='karla'?g.andre:g.karla)}</div>`:''}
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px">
-          <div class="entry-amount" style="color:${c.color}">${fmt(g.total)}</div>
+          <div class="entry-amount" style="color:${cc.color}">${fmt(g.total)}</div>
           ${g.quien_pago&&g.quien_pago!=='compartido'?`<button class="liq-btn ${g.liquidado?'liq-done':''}" onclick="toggleLiquidado(${g.id})">${g.liquidado?'↩ Reabrir':'✓ Ya liquidé'}</button>`:''}
         </div>
+        <button class="edit-btn" onclick="openEdit('gasto',${g.id})" title="Editar">✏️</button>
         <button class="btn btn-danger" onclick="deleteGasto(${g.id})">✕</button>
-      <button class="edit-btn" onclick="openEdit('gasto',${g.id})" title="Editar">✏️</button>
       </div>`;
     });
+    html+=`<div class="cat-folder">
+      <div class="cat-folder-header" onclick="toggleCatFolder('${uid}')">
+        <div class="cat-folder-left">
+          <div class="cat-folder-icon">${cc.icon}</div>
+          <div class="cat-folder-info">
+            <div class="cat-folder-name">${cc.label}</div>
+            <div class="cat-folder-meta">${gs.length} gasto${gs.length!==1?'s':''}${pendCount>0?` · <span style="color:var(--yellow)">${pendCount} pendiente${pendCount!==1?'s':''}</span>':''}</div>
+          </div>
+        </div>
+        <div class="cat-folder-right">
+          <span class="cat-folder-total" style="color:${cc.color}">${fmt(catTotal)}</span>
+          <span class="cat-folder-chev" id="chev-${uid}">▼</span>
+        </div>
+      </div>
+      <div class="cat-folder-body" id="${uid}">${itemsHtml}</div>
+    </div>`;
   });
   el.innerHTML=html;
+}
+
+function toggleCatFolder(uid) {
+  const body=document.getElementById(uid);
+  const chev=document.getElementById('chev-'+uid);
+  if(!body) return;
+  body.classList.toggle('open');
+  if(chev) chev.classList.toggle('open');
 }
 
 // ── COMPRAS MSI ───────────────────────────────────────────────
@@ -2045,6 +2107,50 @@ if(savedUser && savedPAT && savedPass) {
   document.getElementById('login-user').value = savedUser;
   showApp();
 }
+
+// ── SWIPE PARA CAMBIAR PESTAÑA (móvil) ──────────────────────
+(function() {
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let touchStartTarget = null;
+
+  document.addEventListener('touchstart', e => {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+    touchStartTarget = e.target;
+  }, { passive: true });
+
+  document.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    const dy = e.changedTouches[0].clientY - touchStartY;
+
+    // ignore if mostly vertical
+    if(Math.abs(dy) > Math.abs(dx)) return;
+    // ignore short swipes
+    if(Math.abs(dx) < 60) return;
+
+    // ignore if touch started inside a carousel or scrollable element
+    const carousels = [
+      document.getElementById('balance-carousel'),
+      document.getElementById('pend-carousel'),
+    ];
+    for(const car of carousels) {
+      if(car && car.contains(touchStartTarget)) return;
+    }
+    // also ignore year-body and hist-detail (scrollable lists)
+    if(touchStartTarget.closest('.year-body, .hist-detail, .cat-folder-body')) return;
+
+    // navigate
+    const navBtns = [...document.querySelectorAll('nav button')];
+    const activeBtn = document.querySelector('nav button.active');
+    if(!activeBtn) return;
+    const idx = navBtns.indexOf(activeBtn);
+    let next = dx < 0 ? idx + 1 : idx - 1; // swipe left = next, right = prev
+    if(next < 0) next = navBtns.length - 1;
+    if(next >= navBtns.length) next = 0;
+    navBtns[next].click();
+  }, { passive: true });
+})();
 
 // ── KEYBOARD NAV (flechas izquierda/derecha = cambiar pestaña) ──
 const PAGES = ['resumen','gastos','fijos','compras','historial','ahorro'];
