@@ -878,6 +878,8 @@ function renderResumen() {
                      + pendA_fijos.reduce((s,f)=>s+f.andre,0);
 
   const pendTotal = pendK_total + pendA_total;
+  console.log('pendK_gastos:', pendK_gastos.length, pendK_gastos.map(g=>g.nombre+' liq:'+g.liquidado+' qp:'+g.quien_pago+' k:'+g.karla));
+  console.log('pendK_total:', pendK_total, 'pendA_total:', pendA_total);
 
   function makePendCard(label, amount, color, items) {
     const parts = [];
@@ -1210,8 +1212,7 @@ function saveEdit() {
       g.andre  = +(g.andre * ratio).toFixed(2);
     }
     if(g.quien_pago === 'compartido') g.liquidado = true;
-    else g.liquidado = false; // ensure not locked as liquidado
-    console.log('gasto after edit:', JSON.stringify({id:g.id,nombre:g.nombre,quien_pago:g.quien_pago,karla:g.karla,andre:g.andre,liquidado:g.liquidado}));
+    else g.liquidado = false;
   } else if(_editType === 'fijo') {
     const f = state.fijos.find(x=>x.id===_editId);
     if(!f) return;
@@ -1250,11 +1251,11 @@ function saveEdit() {
 
   save();
   closeModal('modal-edit');
-  if(_editType==='gasto')   renderGastos();
-  if(_editType==='fijo')    renderFijos();
+  if(_editType==='gasto')   { renderGastos(); renderResumen(); }
+  if(_editType==='fijo')    { renderFijos();  renderResumen(); }
   if(_editType==='compra')  renderCompras();
   if(_editType==='ahorro')  renderAhorro();
-  renderResumen();
+  if(_editType!=='gasto' && _editType!=='fijo') renderResumen();
 }
 
 // close modals clicking overlay — wait for DOM
