@@ -262,18 +262,16 @@ function checkFijosReset() {
 
   if(ultimoMes === mesActual) return; // ya se revisó este mes, nada que hacer
 
-  // es un mes nuevo — resetear liquidado de todos los fijos
-  if(ultimoMes && ultimoMes !== mesActual) {
-    let huboReset = false;
-    state.fijos.forEach(f => {
-      if(f.liquidado) {
-        f.liquidado = false;
-        huboReset = true;
-      }
-    });
-    if(huboReset) {
-      setSyncState('loading', 'Nuevo mes — reiniciando fijos…');
+  // es un mes nuevo (o primera vez) — resetear liquidado de todos los fijos
+  let huboReset = false;
+  state.fijos.forEach(f => {
+    if(f.liquidado) {
+      f.liquidado = false;
+      huboReset = true;
     }
+  });
+  if(huboReset) {
+    setSyncState('loading', 'Nuevo mes — reiniciando fijos…');
   }
 
   state.fijos_ultimo_mes = mesActual;
@@ -858,9 +856,9 @@ function renderResumen() {
   }
   document.getElementById('pendientes-section').innerHTML = pendHtml;
 
-  // ── CARRUSEL: pendientes del mes por persona ──
+  // ── CARRUSEL: todos los pendientes sin importar mes ──
   const mesGastosPend = state.gastos.filter(g =>
-    !g.liquidado && g.quien_pago && g.quien_pago !== 'compartido' && g.fecha.startsWith(mes)
+    !g.liquidado && g.quien_pago && g.quien_pago !== 'compartido'
   );
   const mesFijosPend = state.fijos.filter(f =>
     !f.liquidado && f.quien_pago && f.quien_pago !== 'compartido' &&
@@ -881,42 +879,55 @@ function renderResumen() {
 
   const pendTotal = pendK_total + pendA_total;
 
-  function makePendCard(label, amount, color, items, dotId) {
-    const topItems = items.slice(0,4);
-    const rowsHtml = topItems.map(it=>`
-      <div class="pend-card-row">
-        <span class="pend-card-row-name">${it.nombre}${it._fijo||it.quien_pago?'':''}</span>
-        <span class="pend-card-row-amt" style="color:${color}">${fmt(it._amt)}</span>
-      </div>`).join('');
-    const extraMsg = items.length > 4 ? `<div style="font-size:11px;color:var(--muted);margin-top:4px">+${items.length-4} más</div>` : '';
-    return `<div class="pend-card">
-      <div class="pend-card-label">${label}</div>
-      <div class="pend-card-amount" style="color:${color}">${fmt(amount)}</div>
-      <div class="pend-card-sub">${amount>0?`${items.length} concepto${items.length!==1?'s':''} pendiente${items.length!==1?'s':''}`:label.includes('Total')?'Sin pendientes este mes':'No debe nada este mes'}</div>
-      ${amount>0?`<div class="pend-card-rows">${rowsHtml}${extraMsg}</div>`:''}
-    </div>${''}` + '';
+  function makePendCard(label, amount, color, items) {
+    const parts = [];
+    parts.push('<div class="pend-card">');
+    parts.push('<div class="pend-card-label">'+label+'</div>');
+    parts.push('<div class="pend-card-amount" style="color:'+color+'">'+fmt(amount)+'</div>');
+    const subTxt = amount>0
+      ? items.length+' concepto'+(items.length!==1?'s':'')+' pendiente'+(items.length!==1?'s':'')
+      : 'Sin pendientes';
+    parts.push('<div class="pend-card-sub">'+subTxt+'</div>');
+    if(amount > 0) {
+      parts.push('<div class="pend-card-rows">');
+      const sorted = [...items].sort((a,b)=>(a._mes||'0').localeCompare(b._mes||'0'));
+      sorted.forEach(function(it) {
+        const mesLabel = it._fijo ? '(fijo mensual)' : formatMonth(it._mes);
+        const quienLabel = it._quien ? ' · '+it._quien : '';
+        parts.push('<div class="pend-card-row">');
+        parts.push('<div style="display:flex;flex-direction:column;gap:1px;min-width:0">');
+        parts.push('<span class="pend-card-row-name">'+it.nombre+quienLabel+'</span>');
+        parts.push('<span style="font-size:10px;color:var(--muted)">'+mesLabel+'</span>');
+        parts.push('</div>');
+        parts.push('<span class="pend-card-row-amt" style="color:'+color+'">'+fmt(it._amt)+'</span>');
+        parts.push('</div>');
+      });
+      parts.push('</div>');
+    }
+    parts.push('</div>');
+    return parts.join('');
   }
 
   const itemsK = [
-    ...pendK_gastos.map(g=>({nombre:g.nombre, _amt:g.karla-(g.abonado||0)})),
-    ...pendK_fijos.map(f=>({nombre:f.nombre+' (fijo)', _amt:f.karla}))
+    ...pendK_gastos.map(g=>({nombre:g.nombre, _amt:g.karla-(g.abonado||0), _mes:g.fecha.slice(0,7)})),
+    ...pendK_fijos.map(f=>({nombre:f.nombre, _amt:f.karla, _mes:null, _fijo:true}))
   ];
   const itemsA = [
-    ...pendA_gastos.map(g=>({nombre:g.nombre, _amt:g.andre-(g.abonado||0)})),
-    ...pendA_fijos.map(f=>({nombre:f.nombre+' (fijo)', _amt:f.andre}))
+    ...pendA_gastos.map(g=>({nombre:g.nombre, _amt:g.andre-(g.abonado||0), _mes:g.fecha.slice(0,7)})),
+    ...pendA_fijos.map(f=>({nombre:f.nombre, _amt:f.andre, _mes:null, _fijo:true}))
   ];
   const itemsTotal = [
-    ...itemsK.map(i=>({...i, _label:'K'})),
-    ...itemsA.map(i=>({...i, _label:'A'}))
+    ...itemsK.map(i=>({...i, _quien:'Karla'})),
+    ...itemsA.map(i=>({...i, _quien:'Andre'}))
   ];
 
-  const cardK     = makePendCard('💗 Karla debe este mes',  pendK_total, 'var(--karla)', itemsK, 0);
-  const cardA     = makePendCard('💙 Andre debe este mes',  pendA_total, 'var(--andre)', itemsA, 1);
-  const cardTotal = makePendCard('📊 Total pendiente',      pendTotal,   'var(--shared)', itemsTotal.map(i=>({nombre:i.nombre, _amt:i._amt})), 2);
+  const cardK     = makePendCard('💗 Karla debe',  pendK_total, 'var(--karla)', itemsK);
+  const cardA     = makePendCard('💙 Andre debe',  pendA_total, 'var(--andre)', itemsA);
+  const cardTotal = makePendCard('📊 Total pendiente', pendTotal, 'var(--shared)', itemsTotal);
 
   const pendMesHtml = `
     <div class="pend-carousel-wrap">
-      <div class="pend-carousel-title">Pendiente de liquidar — ${formatMonth(mes)}</div>
+      <div class="pend-carousel-title">Pendiente de liquidar</div>
       <div class="pend-carousel" id="pend-carousel" onscroll="updatePendDots()">
         ${cardK}${cardA}${cardTotal}
       </div>
