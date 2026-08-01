@@ -878,6 +878,8 @@ function renderResumen() {
                      + pendA_fijos.reduce((s,f)=>s+(+f.andre||0),0);
 
   const pendTotal = pendK_total + pendA_total;
+  console.log('DEBUG pendK_gastos:', JSON.stringify(pendK_gastos.map(g=>({n:g.nombre,k:g.karla,tk:typeof g.karla,liq:g.liquidado,qp:g.quien_pago,ab:g.abonado}))));
+  console.log('DEBUG totals:', pendK_total, pendA_total, pendTotal);
 
 
   function makePendCard(label, amount, color, items) {
