@@ -1210,6 +1210,8 @@ function saveEdit() {
       g.andre  = +(g.andre * ratio).toFixed(2);
     }
     if(g.quien_pago === 'compartido') g.liquidado = true;
+    else g.liquidado = false; // ensure not locked as liquidado
+    console.log('gasto after edit:', JSON.stringify({id:g.id,nombre:g.nombre,quien_pago:g.quien_pago,karla:g.karla,andre:g.andre,liquidado:g.liquidado}));
   } else if(_editType === 'fijo') {
     const f = state.fijos.find(x=>x.id===_editId);
     if(!f) return;
