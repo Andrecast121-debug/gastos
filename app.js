@@ -208,6 +208,13 @@ async function loadFromGitHub() {
     const local = localStorage.getItem('fka-state');
     if(local) state = JSON.parse(local);
   }
+  // auto-liquidar gastos completamente abonados
+  state.gastos.forEach(g => {
+    if(!g.liquidado && g.abonado) {
+      const debe = g.quien_pago==='karla' ? (+g.andre||0) : (+g.karla||0);
+      if(debe > 0 && (+g.abonado||0) >= debe) g.liquidado = true;
+    }
+  });
   checkFijosReset();
   populateMonthSelect('resumen-mes');
   populateMonthSelect('gastos-mes');
@@ -865,21 +872,20 @@ function renderResumen() {
     ((f.quien_pago==='karla'&&f.andre>0)||(f.quien_pago==='andre'&&f.karla>0))
   );
 
-  // lo que Karla debe este mes (gastos donde Andre pagó + fijos donde Andre pagó)
-  const pendK_gastos = mesGastosPend.filter(g=>g.quien_pago==='andre'&&g.karla>0);
+  // lo que Karla debe (gastos donde Andre pagó, con saldo pendiente)
+  const pendK_gastos = mesGastosPend.filter(g=>g.quien_pago==='andre'&&(+g.karla||0)>0&&(+g.karla||0)-(+g.abonado||0)>0);
   const pendK_fijos  = mesFijosPend.filter(f=>f.quien_pago==='andre'&&f.karla>0);
   const pendK_total  = pendK_gastos.reduce((s,g)=>s+((+g.karla||0)-(+g.abonado||0)),0)
                      + pendK_fijos.reduce((s,f)=>s+(+f.karla||0),0);
 
-  // lo que Andre debe este mes (gastos donde Karla pagó + fijos donde Karla pagó)
-  const pendA_gastos = mesGastosPend.filter(g=>g.quien_pago==='karla'&&g.andre>0);
+  // lo que Andre debe (gastos donde Karla pagó, con saldo pendiente)
+  const pendA_gastos = mesGastosPend.filter(g=>g.quien_pago==='karla'&&(+g.andre||0)>0&&(+g.andre||0)-(+g.abonado||0)>0);
   const pendA_fijos  = mesFijosPend.filter(f=>f.quien_pago==='karla'&&f.andre>0);
   const pendA_total  = pendA_gastos.reduce((s,g)=>s+((+g.andre||0)-(+g.abonado||0)),0)
                      + pendA_fijos.reduce((s,f)=>s+(+f.andre||0),0);
 
   const pendTotal = pendK_total + pendA_total;
-  console.log('DEBUG pendK_gastos:', JSON.stringify(pendK_gastos.map(g=>({n:g.nombre,k:g.karla,tk:typeof g.karla,liq:g.liquidado,qp:g.quien_pago,ab:g.abonado}))));
-  console.log('DEBUG totals:', pendK_total, pendA_total, pendTotal);
+
 
 
   function makePendCard(label, amount, color, items) {
