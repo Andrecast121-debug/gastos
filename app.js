@@ -762,8 +762,8 @@ function renderResumen() {
 
   let karla_debe = 0, andre_debe = 0;
   pendientes.forEach(g => {
-    if(g.quien_pago === 'andre' && g.karla > 0) karla_debe += g.karla;
-    if(g.quien_pago === 'karla' && g.andre > 0) andre_debe += g.andre;
+    if(g.quien_pago === 'andre' && +g.karla > 0) karla_debe += +g.karla;
+    if(g.quien_pago === 'karla' && +g.andre > 0) andre_debe += +g.andre;
   });
   fijosPend.forEach(f => {
     if(f.quien_pago === 'andre' && f.karla > 0) karla_debe += f.karla;
@@ -868,18 +868,17 @@ function renderResumen() {
   // lo que Karla debe este mes (gastos donde Andre pagó + fijos donde Andre pagó)
   const pendK_gastos = mesGastosPend.filter(g=>g.quien_pago==='andre'&&g.karla>0);
   const pendK_fijos  = mesFijosPend.filter(f=>f.quien_pago==='andre'&&f.karla>0);
-  const pendK_total  = pendK_gastos.reduce((s,g)=>s+(g.karla-(g.abonado||0)),0)
-                     + pendK_fijos.reduce((s,f)=>s+f.karla,0);
+  const pendK_total  = pendK_gastos.reduce((s,g)=>s+((+g.karla||0)-(+g.abonado||0)),0)
+                     + pendK_fijos.reduce((s,f)=>s+(+f.karla||0),0);
 
   // lo que Andre debe este mes (gastos donde Karla pagó + fijos donde Karla pagó)
   const pendA_gastos = mesGastosPend.filter(g=>g.quien_pago==='karla'&&g.andre>0);
   const pendA_fijos  = mesFijosPend.filter(f=>f.quien_pago==='karla'&&f.andre>0);
-  const pendA_total  = pendA_gastos.reduce((s,g)=>s+(g.andre-(g.abonado||0)),0)
-                     + pendA_fijos.reduce((s,f)=>s+f.andre,0);
+  const pendA_total  = pendA_gastos.reduce((s,g)=>s+((+g.andre||0)-(+g.abonado||0)),0)
+                     + pendA_fijos.reduce((s,f)=>s+(+f.andre||0),0);
 
   const pendTotal = pendK_total + pendA_total;
-  console.log('pendK_gastos:', pendK_gastos.length, pendK_gastos.map(g=>g.nombre+' liq:'+g.liquidado+' qp:'+g.quien_pago+' k:'+g.karla));
-  console.log('pendK_total:', pendK_total, 'pendA_total:', pendA_total);
+
 
   function makePendCard(label, amount, color, items) {
     const parts = [];
